@@ -1,0 +1,7 @@
+*.pdf
+input/item_categories.csv
+input/items.csv
+input/sales_train.csv
+input/sample_submission.csv
+input/shops.csv
+input/test.csv
