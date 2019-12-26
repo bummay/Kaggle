@@ -9,11 +9,12 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestRegressor
 
 # %%
-items = pd.read_csv('input/PredictFutureSales/items.csv')
-item_categories = pd.read_csv('input/PredictFutureSales/item_categories.csv')
-shops = pd.read_csv('input/PredictFutureSales/shops.csv')
-sales_train = pd.read_csv('input/PredictFutureSales/sales_train.csv')
-test = pd.read_csv('input/PredictFutureSales/test.csv')
+inputDir = 'PredictFuturePrice/input/'
+items = pd.read_csv(inputDir + 'items.csv')
+item_categories = pd.read_csv(inputDir + 'item_categories.csv')
+shops = pd.read_csv(inputDir + 'shops.csv')
+sales_train = pd.read_csv(inputDir + 'sales_train.csv')
+test = pd.read_csv(inputDir + 'test.csv')
 
 # # %%
 # items.info()
@@ -27,31 +28,6 @@ test = pd.read_csv('input/PredictFutureSales/test.csv')
 # shops.info()
 # shops.head()
 
-# %%
-# item_categoriesの名前から大分類を作成
-item_categories['major_name'] = item_categories['item_category_name'].map(lambda x: x.split(' - ')[0])
-item_categories['major_name'].value_counts()
-
-item_categories.loc[
-    (item_categories['major_name'] == 'Чистые носители (шпиль)') |
-    (item_categories['major_name'] == 'Чистые носители (штучные)'),
-    'major_name'] = 'Чистые носители'
-
-
-item_categories.loc[
-    (item_categories['major_name'] == 'Игры') |
-    (item_categories['major_name'] == 'Игры MAC') |
-    (item_categories['major_name'] == 'Игры PC') |
-    (item_categories['major_name'] == 'Игры Android'),
-    'major_name'] = 'Игры'
-
-
-item_categories.loc[
-    (item_categories['major_name'] == 'Карты оплаты') |
-    (item_categories['major_name'] == 'Карты оплаты (Кино, Музыка, Игры)'),
-    'major_name'] = 'Карты оплаты'
-
-# item_categories['major_name'].value_counts()
 
 # %%
 # shopsの名前から都市名を作成
@@ -69,6 +45,7 @@ shops.loc[
 sales_train['item_sales_day'] = sales_train['item_price'] * sales_train['item_cnt_day']
 
 # %%
+# 商品数と売上金額を月ごとに集計
 month_shop_item_cnt = sales_train[
     ['date_block_num', 'shop_id', 'item_id', 'item_cnt_day']
 ].groupby(['date_block_num', 'shop_id', 'item_id'],
@@ -110,12 +87,6 @@ train = pd.merge(
     how='left'
 )
 
-train = pd.merge(
-    train,
-    item_categories[['item_category_id', 'major_name']],
-    on='item_category_id',
-    how='left'
-)
 
 train = pd.merge(
     train,
@@ -132,13 +103,6 @@ plt.title('Monthly item counts')
 
 
 # %%
-plt_df = train.groupby(['date_block_num', 'major_name'], as_index=False).sum()
-plt.figure(figsize=(20, 10))
-sns.lineplot(x='date_block_num', y='month_shop_item_cnt', hue='major_name', data=plt_df)
-plt.title('Monthly item counts by major_name')
-
-
-# %%
 plt_df = train.groupby(['date_block_num', 'city_name'], as_index=False).sum()
 plt.figure(figsize=(20, 10))
 sns.lineplot(x='date_block_num', y='month_shop_item_cnt', hue='city_name', data=plt_df)
@@ -151,7 +115,7 @@ train['month_shop_item_cnt'] = train['month_shop_item_cnt'].clip(0, 20)
 
 # ラグ生成対象の列とラグの間隔を定義
 lag_col_list = ['month_shop_item_cnt', 'month_shop_item_sales']
-lag_num_list = [1, 2, 3, 6, 9, 12]
+lag_num_list = [1, 2, 3]
 
 # shop_id、item_id、date_block_numの順にソート
 train = train.sort_values(
@@ -183,7 +147,7 @@ train_y = train_['month_shop_item_cnt']
 test_X = test_.drop(columns=['date_block_num','month_shop_item_cnt', 'month_shop_item_sales'])
 
 # %%
-obj_col_list = ['major_name', 'city_name']
+obj_col_list = ['city_name']
 for obj_col in obj_col_list:
     le = LabelEncoder()
     train_X[obj_col] = pd.DataFrame({obj_col:le.fit_transform(train_X[obj_col])})
@@ -224,7 +188,10 @@ rmse = np.sqrt(
 rmse
 
 # %%
+# predict
+print('predict started : ' + datetime.datetime.now().strftime('%H:%M:%S'))
 test_y = rfr.predict(test_X)
+print('predict finished : ' + datetime.datetime.now().strftime('%H:%M:%S'))
 test_X['item_cnt_month'] = test_y
 submission = pd.merge(
     test,
@@ -234,8 +201,9 @@ submission = pd.merge(
 )
 
 # %%
+outputDir = 'PredictFuturePrice/output/'
 now = datetime.datetime.now()
-submission[['ID', 'item_cnt_month']].to_csv('output/' + 'predictFutureSales' +
+submission[['ID', 'item_cnt_month']].to_csv(outputDir + 'predictFutureSales' +
                    now.strftime('%Y%m%d_%H%M%S') + '.csv', index=False, header=True)
 
 
