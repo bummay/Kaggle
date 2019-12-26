@@ -69,6 +69,43 @@ shops.loc[
 # shops['city_name'].value_counts()
 
 # %%
+# 都市名から時間帯を作成
+shops['time_zone'] = 3
+
+shops.loc[
+    (shops['city_name'] == 'Самара') |
+    (shops['city_name'] == 'Волжский'),
+    'time_zone'] = 4
+
+shops.loc[
+    (shops['city_name'] == 'Тюмень') |
+    (shops['city_name'] == 'Сургут') |
+    (shops['city_name'] == 'Уфа'),
+    'time_zone'] = 5
+
+shops.loc[
+    (shops['city_name'] == 'Омск'),
+    'time_zone'] = 6
+
+shops.loc[
+    (shops['city_name'] == 'Красноярск') |
+    (shops['city_name'] == 'Новосибирск') |
+    (shops['city_name'] == 'Томск'),
+    'time_zone'] = 7
+
+shops.loc[
+    (shops['city_name'] == 'Якутск'),
+    'time_zone'] = 9
+
+shops.loc[
+    (shops['city_name'] == 'Выездная') |
+    (shops['city_name'] == 'Интернет-магазин') |
+    (shops['city_name'] == 'Цифровой'),
+    'time_zone'] = 0
+
+shops['time_zone'].value_counts()
+
+# %%
 # sales_trainの商品単価と売上数から売上金額を作成
 sales_train['item_sales_day'] = sales_train['item_price'] * sales_train['item_cnt_day']
 
@@ -124,7 +161,7 @@ train = pd.merge(
 
 train = pd.merge(
     train,
-    shops[['shop_id', 'city_name']],
+    shops[['shop_id', 'city_name', 'time_zone']],
     on='shop_id',
     how='left'
 )
@@ -143,6 +180,13 @@ plt.figure(figsize=(20, 10))
 sns.lineplot(x='date_block_num', y='month_shop_item_cnt', hue='city_name', data=plt_df)
 plt.title('Monthly item counts by city_name')
 
+# %%
+# 可視化その3
+plt_df = train.groupby(['date_block_num', 'time_zone'], as_index=False).sum()
+plt.figure(figsize=(20, 10))
+sns.lineplot(x='date_block_num', y='month_shop_item_cnt',
+             hue='time_zone', data=plt_df)
+plt.title('Monthly item counts by time_zone')
 
 # %%
 # 月次売上数をClip
@@ -208,7 +252,7 @@ rfr = RandomForestRegressor(bootstrap=True, ccp_alpha=0.0, criterion='mse',
                             min_impurity_split=None, min_samples_leaf=1,
                             min_samples_split=2, min_weight_fraction_leaf=0.0,
                             n_estimators=100, n_jobs=None, oob_score=False,
-                            random_state=None, verbose=3, warm_start=False)
+                            random_state=None, verbose=5, warm_start=False)
 rfr.fit(train_X,train_y)
 
 
@@ -254,5 +298,3 @@ now = datetime.datetime.now()
 submission[['ID', 'item_cnt_month']].to_csv(outputDir + 'predictFutureSales' +
                    now.strftime('%Y%m%d_%H%M%S') + '.csv', index=False, header=True)
 
-
-# %%
