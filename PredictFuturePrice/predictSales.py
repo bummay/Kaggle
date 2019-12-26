@@ -7,6 +7,9 @@ import datetime
 
 from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import fbeta_score
+from sklearn.metrics.scorer import make_scorer
+from sklearn.model_selection import GridSearchCV
 
 # %%
 inputDir = 'PredictFuturePrice/input/'
@@ -28,6 +31,31 @@ test = pd.read_csv(inputDir + 'test.csv')
 # shops.info()
 # shops.head()
 
+# %%
+# item_categoriesの名前から大分類を作成
+item_categories['major_name'] = item_categories['item_category_name'].map(lambda x: x.split(' - ')[0])
+item_categories['major_name'].value_counts()
+
+item_categories.loc[
+    (item_categories['major_name'] == 'Чистые носители (шпиль)') |
+    (item_categories['major_name'] == 'Чистые носители (штучные)'),
+    'major_name'] = 'Чистые носители'
+
+
+item_categories.loc[
+    (item_categories['major_name'] == 'Игры') |
+    (item_categories['major_name'] == 'Игры MAC') |
+    (item_categories['major_name'] == 'Игры PC') |
+    (item_categories['major_name'] == 'Игры Android'),
+    'major_name'] = 'Игры'
+
+
+item_categories.loc[
+    (item_categories['major_name'] == 'Карты оплаты') |
+    (item_categories['major_name'] == 'Карты оплаты (Кино, Музыка, Игры)'),
+    'major_name'] = 'Карты оплаты'
+
+# item_categories['major_name'].value_counts()
 
 # %%
 # shopsの名前から都市名を作成
@@ -87,6 +115,12 @@ train = pd.merge(
     how='left'
 )
 
+train = pd.merge(
+    train,
+    item_categories[['item_category_id', 'major_name']],
+    on='item_category_id',
+    how='left'
+)
 
 train = pd.merge(
     train,
@@ -103,6 +137,7 @@ plt.title('Monthly item counts')
 
 
 # %%
+# 可視化その2
 plt_df = train.groupby(['date_block_num', 'city_name'], as_index=False).sum()
 plt.figure(figsize=(20, 10))
 sns.lineplot(x='date_block_num', y='month_shop_item_cnt', hue='city_name', data=plt_df)
@@ -147,14 +182,33 @@ train_y = train_['month_shop_item_cnt']
 test_X = test_.drop(columns=['date_block_num','month_shop_item_cnt', 'month_shop_item_sales'])
 
 # %%
-obj_col_list = ['city_name']
+obj_col_list = ['major_name', 'city_name']
 for obj_col in obj_col_list:
     le = LabelEncoder()
     train_X[obj_col] = pd.DataFrame({obj_col:le.fit_transform(train_X[obj_col])})
     test_X[obj_col] = pd.DataFrame({obj_col:le.fit_transform(test_X[obj_col])})
 
+
+# # %%
+# # パフォーマンス・チューニング
+# params = {
+#     'n_estimators':[80,100,120],
+#     'max_depth':[None, 5]
+# }
+
+# scorer = make_scorer(fbeta_score, beta=0.5)
+# clf = GridSearchCV(RandomForestRegressor(), params, cv=5, n_jobs=-1, verbose=5)
+# clf_fit = clf.fit(train_X, train_y)
+# predictor = clf_fit.best_estimator_
+
 # %%
-rfr = RandomForestRegressor()
+rfr = RandomForestRegressor(bootstrap=True, ccp_alpha=0.0, criterion='mse',
+                            max_depth=3, max_features='auto', max_leaf_nodes=None,
+                            max_samples=None, min_impurity_decrease=0.0,
+                            min_impurity_split=None, min_samples_leaf=1,
+                            min_samples_split=2, min_weight_fraction_leaf=0.0,
+                            n_estimators=100, n_jobs=None, oob_score=False,
+                            random_state=None, verbose=3, warm_start=False)
 rfr.fit(train_X,train_y)
 
 
@@ -166,14 +220,7 @@ rfr.fit(train_X,train_y)
 #                       n_estimators=100, n_jobs=None, oob_score=False,
 #                       random_state=None, verbose=0, warm_start=False)
 
-# %%
-# 重要度を確認
-plt.figure(figsize=(20, 10))
-sns.barplot(
-    x = rfr.feature_importances_,
-    y = train_X.columns.values
-)
-plt.title('Importance of features')
+
 
 # %%
 rmse = np.sqrt(
@@ -191,6 +238,7 @@ rmse
 # predict
 print('predict started : ' + datetime.datetime.now().strftime('%H:%M:%S'))
 test_y = rfr.predict(test_X)
+#test_y = predictor.predict(test_X)
 print('predict finished : ' + datetime.datetime.now().strftime('%H:%M:%S'))
 test_X['item_cnt_month'] = test_y
 submission = pd.merge(
