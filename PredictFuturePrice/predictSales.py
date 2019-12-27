@@ -103,7 +103,7 @@ shops.loc[
     (shops['city_name'] == 'Цифровой'),
     'time_zone'] = 0
 
-shops['time_zone'].value_counts()
+# shops['time_zone'].value_counts()
 
 # %%
 # sales_trainの商品単価と売上数から売上金額を作成
@@ -247,23 +247,13 @@ for obj_col in obj_col_list:
 
 # %%
 rfr = RandomForestRegressor(bootstrap=True, ccp_alpha=0.0, criterion='mse',
-                            max_depth=3, max_features='auto', max_leaf_nodes=None,
+                            max_depth=5, max_features='auto', max_leaf_nodes=None,
                             max_samples=None, min_impurity_decrease=0.0,
                             min_impurity_split=None, min_samples_leaf=1,
                             min_samples_split=2, min_weight_fraction_leaf=0.0,
                             n_estimators=100, n_jobs=None, oob_score=False,
                             random_state=None, verbose=5, warm_start=False)
 rfr.fit(train_X,train_y)
-
-
-# RandomForestRegressor(bootstrap=True, ccp_alpha=0.0, criterion='mse',
-#                       max_depth=None, max_features='auto', max_leaf_nodes=None,
-#                       max_samples=None, min_impurity_decrease=0.0,
-#                       min_impurity_split=None, min_samples_leaf=1,
-#                       min_samples_split=2, min_weight_fraction_leaf=0.0,
-#                       n_estimators=100, n_jobs=None, oob_score=False,
-#                       random_state=None, verbose=0, warm_start=False)
-
 
 
 # %%
