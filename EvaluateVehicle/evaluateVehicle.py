@@ -162,6 +162,13 @@ def processSafety(df):
 train_df = processSafety(train_df)
 test_df = processSafety(test_df)
 
+# %%
+# ===== 不要な列を削除
+def dropColumns(df):
+    df = df.drop(['doors'], axis=1)
+    return df
+train_df = dropColumns(train_df)
+test_df = dropColumns(test_df)
 
 # %%
 train_X = train_df.drop(['id', 'class'],axis=1)
@@ -170,10 +177,11 @@ test_x = test_df.drop('id', axis=1)
 
 # %%
 rfc = RandomForestClassifier(n_estimators=100)
+rfc.fit(train_X, train_y)
+
 rfc.score(train_X, train_y)
 Y_pred = rfc.predict(test_x)
 
-rfc.fit(train_X, train_y)
 
 # %%
 def outputCSV(pred, csvName):
