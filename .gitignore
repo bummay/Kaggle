@@ -1,1 +1,4 @@
 PredictFuturePrice/pict/
+EvaluateVehicle/input/sample_submit.csv
+EvaluateVehicle/input/test.tsv
+EvaluateVehicle/input/train.tsv
