@@ -116,14 +116,13 @@ train_df = processMaint(train_df)
 test_df = processMaint(test_df)
 
 # %%
-# ===== doorsは2人乗り/Elseに分割
+# ===== doorsをコード化
 def processDoors(df):
-    doors_dm = pd.get_dummies(df['doors'])
-    doors_dm = doors_dm.drop(['3', '4', '5more'], axis=1)
-    doors_dm = doors_dm.rename(columns={'2': 'is2Doors'})
-    df = df.join(doors_dm)
-    df = df.drop(['doors'], axis=1)
+    df.loc[
+    (df['doors'] == '5more'),
+    'doors'] = 9
 
+    df['doors'] = df['doors'].astype(int)
     return df
 
 train_df = processDoors(train_df)
@@ -153,14 +152,11 @@ train_df = processLugboot(train_df)
 test_df = processLugboot(test_df)
 
 # %%
-# ===== safetyはlow/Elseに分割
-def processSafety(df):
-    safety_dm = pd.get_dummies(df['safety'])
-    safety_dm = safety_dm.drop(['med', 'high'], axis=1)
-    safety_dm = safety_dm.rename(columns={'low': 'isLowSafety'})
-    df = df.join(safety_dm)
-    df = df.drop(['safety'], axis=1)
+# ===== safetyをコード化
 
+def processSafety(df):
+    df['safety'] = df['safety'].map(
+        {'low': 0, 'med': 1, 'high': 2}).astype(int)
     return df
 
 train_df = processSafety(train_df)
@@ -174,11 +170,10 @@ test_x = test_df.drop('id', axis=1)
 
 # %%
 rfc = RandomForestClassifier(n_estimators=100)
-rfc.fit(train_X, train_y)
-Y_pred = rfc.predict(test_x)
 rfc.score(train_X, train_y)
+Y_pred = rfc.predict(test_x)
 
-
+rfc.fit(train_X, train_y)
 
 # %%
 def outputCSV(pred, csvName):
