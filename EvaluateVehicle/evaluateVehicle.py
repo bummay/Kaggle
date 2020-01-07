@@ -172,11 +172,25 @@ train_y = train_df['class']
 test_x = test_df.drop('id', axis=1)
 
 # %%
-rfc = RandomForestClassifier(n_estimators=100)
-rfc.fit(train_X, train_y)
+param_grid = {"max_depth": [2, 3, None],
+            "n_estimators": [50, 100, 150],
+            "min_samples_split": [2, 3],
+            "min_samples_leaf": [1, 3, 10],
+            "bootstrap": [True, False],
+            "criterion": ['gini', 'entropy']
+}
 
-rfc.score(train_X, train_y)
-Y_pred = rfc.predict(test_x)
+forest_grid = GridSearchCV(estimator=RandomForestClassifier(random_state=0),
+                param_grid = param_grid,
+                scoring='accuracy',
+                cv = 3,
+                n_jobs = 1)
+
+forest_grid.fit(train_X, train_y)
+forest_grid_best = forest_grid.best_estimator_
+print(forest_grid_best)
+
+Y_pred = forest_grid_best.predict(test_x)
 
 
 # %%
