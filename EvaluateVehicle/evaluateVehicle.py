@@ -96,25 +96,20 @@ def processClass(df):
 train_df = processClass(train_df)
 
 # %%
-# ===== buyingを「high以上か否か」に変換
+# ===== buyingをコード化
 def processBuying(df):
     df['buying'] = df['buying'].map(
         {'low': 0, 'med': 1, 'high': 2, 'vhigh': 3}).astype(int)
-    df['isBuyingHigh'] = (df['buying'] > 1) * 1
-
-    df = df.drop(['buying'], axis=1)
     return df
 
 train_df = processBuying(train_df)
 test_df = processBuying(test_df)
 
 # %%
-# ===== maintを「high以上か否か」に変換
+# ===== maintをコード化
 def processMaint(df):
     df['maint'] = df['maint'].map(
         {'low': 0, 'med': 1, 'high': 2, 'vhigh': 3}).astype(int)
-    df['isMaintHigh'] = (df['maint'] > 1) * 1
-    df = df.drop(['maint'], axis=1)
     return df
 
 train_df = processMaint(train_df)
@@ -124,9 +119,7 @@ test_df = processMaint(test_df)
 # ===== doorsをコード化
 def processDoors(df):
     df.loc[
-    (df['doors'] == '5more'),
-    'doors'] = 9
-
+    (df['doors'] == '5more'),'doors'] = 9
     df['doors'] = df['doors'].astype(int)
     return df
 
@@ -134,14 +127,12 @@ train_df = processDoors(train_df)
 test_df = processDoors(test_df)
 
 # %%
-# ===== personsを「2人乗りか否か」に変換
+# ===== personsをコード化
 def processPersons(df):
     df.loc[
         (df['persons'] == 'more'),
         'persons'] = 9
     df['persons'] = df['persons'].astype(int)
-    df['isForCouple'] = (df['persons'] == 2) * 1
-    df = df.drop(['persons'], axis=1)
     return df
 
 train_df = processPersons(train_df)
@@ -162,9 +153,6 @@ test_df = processLugboot(test_df)
 def processSafety(df):
     df['safety'] = df['safety'].map(
         {'low': 0, 'med': 1, 'high': 2}).astype(int)
-    df['isLowSafety'] = (df['safety'] == 0) * 1
-    df = df.drop(['safety'], axis=1)
-
     return df
 
 train_df = processSafety(train_df)
@@ -204,6 +192,3 @@ def outputCSV(pred, csvName):
                     now.strftime('%Y%m%d_%H%M%S') + '.csv', index=False, header=False)
 
 outputCSV(Y_pred, 'EvaluateVehicle')
-
-
-# %%
