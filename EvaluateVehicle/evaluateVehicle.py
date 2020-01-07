@@ -96,20 +96,25 @@ def processClass(df):
 train_df = processClass(train_df)
 
 # %%
-# ===== buyingをコード化
+# ===== buyingを「high以上か否か」に変換
 def processBuying(df):
     df['buying'] = df['buying'].map(
         {'low': 0, 'med': 1, 'high': 2, 'vhigh': 3}).astype(int)
+    df['isBuyingHigh'] = (df['buying'] > 1) * 1
+
+    df = df.drop(['buying'], axis=1)
     return df
 
 train_df = processBuying(train_df)
 test_df = processBuying(test_df)
 
 # %%
-# ===== maintをコード化
+# ===== maintを「high以上か否か」に変換
 def processMaint(df):
     df['maint'] = df['maint'].map(
         {'low': 0, 'med': 1, 'high': 2, 'vhigh': 3}).astype(int)
+    df['isMaintHigh'] = (df['maint'] > 1) * 1
+    df = df.drop(['maint'], axis=1)
     return df
 
 train_df = processMaint(train_df)
@@ -129,13 +134,14 @@ train_df = processDoors(train_df)
 test_df = processDoors(test_df)
 
 # %%
-# ===== personsをコード化
+# ===== personsを「2人乗りか否か」に変換
 def processPersons(df):
     df.loc[
         (df['persons'] == 'more'),
         'persons'] = 9
-
     df['persons'] = df['persons'].astype(int)
+    df['isForCouple'] = (df['persons'] == 2) * 1
+    df = df.drop(['persons'], axis=1)
     return df
 
 train_df = processPersons(train_df)
@@ -153,10 +159,12 @@ test_df = processLugboot(test_df)
 
 # %%
 # ===== safetyをコード化
-
 def processSafety(df):
     df['safety'] = df['safety'].map(
         {'low': 0, 'med': 1, 'high': 2}).astype(int)
+    df['isLowSafety'] = (df['safety'] == 0) * 1
+    df = df.drop(['safety'], axis=1)
+
     return df
 
 train_df = processSafety(train_df)
@@ -165,7 +173,7 @@ test_df = processSafety(test_df)
 # %%
 # ===== 不要な列を削除
 def dropColumns(df):
-    df = df.drop(['doors'], axis=1)
+    # df = df.drop(['doors'], axis=1)
     return df
 train_df = dropColumns(train_df)
 test_df = dropColumns(test_df)
