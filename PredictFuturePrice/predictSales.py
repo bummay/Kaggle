@@ -7,6 +7,9 @@ import datetime
 
 from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import fbeta_score
+from sklearn.metrics.scorer import make_scorer
+from sklearn.model_selection import GridSearchCV
 
 # %%
 inputDir = 'PredictFuturePrice/input/'
@@ -28,6 +31,31 @@ test = pd.read_csv(inputDir + 'test.csv')
 # shops.info()
 # shops.head()
 
+# %%
+# item_categoriesの名前から大分類を作成
+item_categories['major_name'] = item_categories['item_category_name'].map(lambda x: x.split(' - ')[0])
+item_categories['major_name'].value_counts()
+
+item_categories.loc[
+    (item_categories['major_name'] == 'Чистые носители (шпиль)') |
+    (item_categories['major_name'] == 'Чистые носители (штучные)'),
+    'major_name'] = 'Чистые носители'
+
+
+item_categories.loc[
+    (item_categories['major_name'] == 'Игры') |
+    (item_categories['major_name'] == 'Игры MAC') |
+    (item_categories['major_name'] == 'Игры PC') |
+    (item_categories['major_name'] == 'Игры Android'),
+    'major_name'] = 'Игры'
+
+
+item_categories.loc[
+    (item_categories['major_name'] == 'Карты оплаты') |
+    (item_categories['major_name'] == 'Карты оплаты (Кино, Музыка, Игры)'),
+    'major_name'] = 'Карты оплаты'
+
+# item_categories['major_name'].value_counts()
 
 # %%
 # shopsの名前から都市名を作成
@@ -39,6 +67,43 @@ shops.loc[
     'city_name'] = 'Якутск'
 
 # shops['city_name'].value_counts()
+
+# %%
+# 都市名から時間帯を作成
+shops['time_zone'] = 3
+
+shops.loc[
+    (shops['city_name'] == 'Самара') |
+    (shops['city_name'] == 'Волжский'),
+    'time_zone'] = 4
+
+shops.loc[
+    (shops['city_name'] == 'Тюмень') |
+    (shops['city_name'] == 'Сургут') |
+    (shops['city_name'] == 'Уфа'),
+    'time_zone'] = 5
+
+shops.loc[
+    (shops['city_name'] == 'Омск'),
+    'time_zone'] = 6
+
+shops.loc[
+    (shops['city_name'] == 'Красноярск') |
+    (shops['city_name'] == 'Новосибирск') |
+    (shops['city_name'] == 'Томск'),
+    'time_zone'] = 7
+
+shops.loc[
+    (shops['city_name'] == 'Якутск'),
+    'time_zone'] = 9
+
+shops.loc[
+    (shops['city_name'] == 'Выездная') |
+    (shops['city_name'] == 'Интернет-магазин') |
+    (shops['city_name'] == 'Цифровой'),
+    'time_zone'] = 0
+
+# shops['time_zone'].value_counts()
 
 # %%
 # sales_trainの商品単価と売上数から売上金額を作成
@@ -87,10 +152,16 @@ train = pd.merge(
     how='left'
 )
 
+train = pd.merge(
+    train,
+    item_categories[['item_category_id', 'major_name']],
+    on='item_category_id',
+    how='left'
+)
 
 train = pd.merge(
     train,
-    shops[['shop_id', 'city_name']],
+    shops[['shop_id', 'city_name', 'time_zone']],
     on='shop_id',
     how='left'
 )
@@ -103,11 +174,19 @@ plt.title('Monthly item counts')
 
 
 # %%
+# 可視化その2
 plt_df = train.groupby(['date_block_num', 'city_name'], as_index=False).sum()
 plt.figure(figsize=(20, 10))
 sns.lineplot(x='date_block_num', y='month_shop_item_cnt', hue='city_name', data=plt_df)
 plt.title('Monthly item counts by city_name')
 
+# %%
+# 可視化その3
+plt_df = train.groupby(['date_block_num', 'time_zone'], as_index=False).sum()
+plt.figure(figsize=(20, 10))
+sns.lineplot(x='date_block_num', y='month_shop_item_cnt',
+             hue='time_zone', data=plt_df)
+plt.title('Monthly item counts by time_zone')
 
 # %%
 # 月次売上数をClip
@@ -147,33 +226,35 @@ train_y = train_['month_shop_item_cnt']
 test_X = test_.drop(columns=['date_block_num','month_shop_item_cnt', 'month_shop_item_sales'])
 
 # %%
-obj_col_list = ['city_name']
+obj_col_list = ['major_name', 'city_name']
 for obj_col in obj_col_list:
     le = LabelEncoder()
     train_X[obj_col] = pd.DataFrame({obj_col:le.fit_transform(train_X[obj_col])})
     test_X[obj_col] = pd.DataFrame({obj_col:le.fit_transform(test_X[obj_col])})
 
+
+# # %%
+# # パフォーマンス・チューニング
+# params = {
+#     'n_estimators':[80,100,120],
+#     'max_depth':[None, 5]
+# }
+
+# scorer = make_scorer(fbeta_score, beta=0.5)
+# clf = GridSearchCV(RandomForestRegressor(), params, cv=5, n_jobs=-1, verbose=5)
+# clf_fit = clf.fit(train_X, train_y)
+# predictor = clf_fit.best_estimator_
+
 # %%
-rfr = RandomForestRegressor()
+rfr = RandomForestRegressor(bootstrap=True, ccp_alpha=0.0, criterion='mse',
+                            max_depth=5, max_features='auto', max_leaf_nodes=None,
+                            max_samples=None, min_impurity_decrease=0.0,
+                            min_impurity_split=None, min_samples_leaf=1,
+                            min_samples_split=2, min_weight_fraction_leaf=0.0,
+                            n_estimators=100, n_jobs=None, oob_score=False,
+                            random_state=None, verbose=5, warm_start=False)
 rfr.fit(train_X,train_y)
 
-
-# RandomForestRegressor(bootstrap=True, ccp_alpha=0.0, criterion='mse',
-#                       max_depth=None, max_features='auto', max_leaf_nodes=None,
-#                       max_samples=None, min_impurity_decrease=0.0,
-#                       min_impurity_split=None, min_samples_leaf=1,
-#                       min_samples_split=2, min_weight_fraction_leaf=0.0,
-#                       n_estimators=100, n_jobs=None, oob_score=False,
-#                       random_state=None, verbose=0, warm_start=False)
-
-# %%
-# 重要度を確認
-plt.figure(figsize=(20, 10))
-sns.barplot(
-    x = rfr.feature_importances_,
-    y = train_X.columns.values
-)
-plt.title('Importance of features')
 
 # %%
 rmse = np.sqrt(
@@ -191,6 +272,7 @@ rmse
 # predict
 print('predict started : ' + datetime.datetime.now().strftime('%H:%M:%S'))
 test_y = rfr.predict(test_X)
+#test_y = predictor.predict(test_X)
 print('predict finished : ' + datetime.datetime.now().strftime('%H:%M:%S'))
 test_X['item_cnt_month'] = test_y
 submission = pd.merge(
@@ -206,5 +288,3 @@ now = datetime.datetime.now()
 submission[['ID', 'item_cnt_month']].to_csv(outputDir + 'predictFutureSales' +
                    now.strftime('%Y%m%d_%H%M%S') + '.csv', index=False, header=True)
 
-
-# %%
