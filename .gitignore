@@ -1,2 +1,12 @@
 PredictFuturePrice/pict/
 EvaluateVehicle/input/
+attendanceOfJleagueGame/list_clubinfo.pkl
+attendanceOfJleagueGame/input/2014_add.csv
+attendanceOfJleagueGame/input/condition.csv
+attendanceOfJleagueGame/input/condition_add.csv
+attendanceOfJleagueGame/input/test.csv
+attendanceOfJleagueGame/input/train.csv
+attendanceOfJleagueGame/input/train_add.csv
+attendanceOfJleagueGame/output/sample.csv
+attendanceOfJleagueGame/output/sample_submit.csv
+attendanceOfJleagueGame/output/train_df.csv
