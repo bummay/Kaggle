@@ -234,48 +234,48 @@ test_df = processHumidity(test_df)
 
 # %%
 # 年/チームごとにホーム開幕戦のフラグを追加
-def processOpeningHomegame(df, listClub):
-    df['isOpeningHomegame'] = 0
-    for item in listClub:
-        team = 'h_' + item[0]
-        tmp_df = df.loc[(df[team] == 1)].groupby('year').min().reset_index()
-        tmp_df = tmp_df[['year', 'match']]
-        for index, row in tmp_df.iterrows():
-            year, match = row[0], row[1]
-            df.loc[
-                ((df[team] == 1) & (df['year'] == year) & (df['match'] == match)), 'isOpeningHomegame'] = 1
-    return df
+# def processOpeningHomegame(df, listClub):
+#     df['isOpeningHomegame'] = 0
+#     for item in listClub:
+#         team = 'h_' + item[0]
+#         tmp_df = df.loc[(df[team] == 1)].groupby('year').min().reset_index()
+#         tmp_df = tmp_df[['year', 'match']]
+#         for index, row in tmp_df.iterrows():
+#             year, match = row[0], row[1]
+#             df.loc[
+#                 ((df[team] == 1) & (df['year'] == year) & (df['match'] == match)), 'isOpeningHomegame'] = 1
+#     return df
 
-train_df = processOpeningHomegame(train_df, list_clubinfo)
-# テスト用データは2014年後半戦の情報のみ→ホーム開幕戦の情報は存在しない。
-test_df['isOpeningHomegame'] = 0
+# train_df = processOpeningHomegame(train_df, list_clubinfo)
+# # テスト用データは2014年後半戦の情報のみ→ホーム開幕戦の情報は存在しない。
+# test_df['isOpeningHomegame'] = 0
 
-# %%
-# 年/チームごとにホーム最終戦のフラグを追加
-def processFinalHomegame(df, listClub):
-    df['isFinalHomegame'] = 0
-    for item in listClub:
-        team = 'h_' + item[0]
-        tmp_df = df.loc[(df[team] == 1)].groupby('year').max().reset_index()
-        tmp_df = tmp_df[['year', 'match']]
-        for index, row in tmp_df.iterrows():
-            year, match = row[0], row[1]
-            # print(team)
-            # print(year)
-            # print(match)
-            # print('---')
-            df.loc[
-                ((df[team] == 1) & (df['year'] == year) & (df['match'] == match)), 'isFinalHomegame'] = 1
-    return df
+# # %%
+# # 年/チームごとにホーム最終戦のフラグを追加
+# def processFinalHomegame(df, listClub):
+#     df['isFinalHomegame'] = 0
+#     for item in listClub:
+#         team = 'h_' + item[0]
+#         tmp_df = df.loc[(df[team] == 1)].groupby('year').max().reset_index()
+#         tmp_df = tmp_df[['year', 'match']]
+#         for index, row in tmp_df.iterrows():
+#             year, match = row[0], row[1]
+#             # print(team)
+#             # print(year)
+#             # print(match)
+#             # print('---')
+#             df.loc[
+#                 ((df[team] == 1) & (df['year'] == year) & (df['match'] == match)), 'isFinalHomegame'] = 1
+#     return df
 
-train_df = processFinalHomegame(train_df, list_clubinfo)
-test_df = processFinalHomegame(test_df, list_clubinfo)
-# 学習用データの2014年データは前半戦の情報のみ→ホーム最終戦の情報は存在しない。
-train_df.loc[(train_df['year'] == 2014), 'isFinalHomegame'] = 0
+# train_df = processFinalHomegame(train_df, list_clubinfo)
+# test_df = processFinalHomegame(test_df, list_clubinfo)
+# # 学習用データの2014年データは前半戦の情報のみ→ホーム最終戦の情報は存在しない。
+# train_df.loc[(train_df['year'] == 2014), 'isFinalHomegame'] = 0
 
 # %%
 # 不要な列を削除
-def dropColumns(df):
+def dropColumns(df, listClub):
     df = df.drop(
         [
             'match',
@@ -291,10 +291,14 @@ def dropColumns(df):
             'gameday'
         ], axis = 1
     )
+
+    for item in listClub:
+        team = 'a_' + item[0]
+        df = df.drop([team], axis=1)
     return df
 
-train_df = dropColumns(train_df)
-test_df = dropColumns(test_df)
+train_df = dropColumns(train_df, list_clubinfo)
+test_df = dropColumns(test_df, list_clubinfo)
 
 # %%
 # クラブによってはキャパシティの異なる複数のスタジアムで試合をすることもある。
@@ -326,21 +330,14 @@ importances.plot(kind="barh", figsize=(9,45))
 # plt.show()
 # %%
 pred_X = test_df.drop(['id'], axis=1)
-pred_y = reg.predict(pred_X)submission = pd.DataFrame([
-    "id": test_df['id'],
-    "capa": test_df['capa'],
-    'yratio': pred_y
-])
-
-# df_y = pd.DataFrame(pred_y).reset_index()
-# df_y = df_y.rename(columns={0: 'yratio', 'index': 'id'})
-# %%
+pred_y = reg.predict(pred_X)
 submission = pd.DataFrame({
     "id": test_df['id'],
     "capa": test_df['capa'],
     'yratio': pred_y
 })
 
+# %%
 submission['y'] = submission['capa'] * submission['yratio']
 submission = submission.drop(['capa', 'yratio'], axis=1)
 now = datetime.datetime.now()
