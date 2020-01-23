@@ -242,44 +242,44 @@ test_df = processHumidity(test_df)
 
 # %%
 # 年/チームごとにホーム開幕戦のフラグを追加
-# def processOpeningHomegame(df, listClub):
-#     df['isOpeningHomegame'] = 0
-#     for item in listClub:
-#         team = 'h_' + item[0]
-#         tmp_df = df.loc[(df[team] == 1)].groupby('year').min().reset_index()
-#         tmp_df = tmp_df[['year', 'match']]
-#         for index, row in tmp_df.iterrows():
-#             year, match = row[0], row[1]
-#             df.loc[
-#                 ((df[team] == 1) & (df['year'] == year) & (df['match'] == match)), 'isOpeningHomegame'] = 1
-#     return df
+def processOpeningHomegame(df, listClub):
+    df['isOpeningHomegame'] = 0
+    for item in listClub:
+        team = 'h_' + item[0]
+        tmp_df = df.loc[(df[team] == 1)].groupby('year').min().reset_index()
+        tmp_df = tmp_df[['year', 'match']]
+        for index, row in tmp_df.iterrows():
+            year, match = row[0], row[1]
+            df.loc[
+                ((df[team] == 1) & (df['year'] == year) & (df['match'] == match)), 'isOpeningHomegame'] = 1
+    return df
 
-# train_df = processOpeningHomegame(train_df, list_clubinfo)
-# # テスト用データは2014年後半戦の情報のみ→ホーム開幕戦の情報は存在しない。
-# test_df['isOpeningHomegame'] = 0
+train_df = processOpeningHomegame(train_df, list_clubinfo)
+# テスト用データは2014年後半戦の情報のみ→ホーム開幕戦の情報は存在しない。
+test_df['isOpeningHomegame'] = 0
 
-# # %%
-# # 年/チームごとにホーム最終戦のフラグを追加
-# def processFinalHomegame(df, listClub):
-#     df['isFinalHomegame'] = 0
-#     for item in listClub:
-#         team = 'h_' + item[0]
-#         tmp_df = df.loc[(df[team] == 1)].groupby('year').max().reset_index()
-#         tmp_df = tmp_df[['year', 'match']]
-#         for index, row in tmp_df.iterrows():
-#             year, match = row[0], row[1]
-#             # print(team)
-#             # print(year)
-#             # print(match)
-#             # print('---')
-#             df.loc[
-#                 ((df[team] == 1) & (df['year'] == year) & (df['match'] == match)), 'isFinalHomegame'] = 1
-#     return df
+# %%
+# 年/チームごとにホーム最終戦のフラグを追加
+def processFinalHomegame(df, listClub):
+    df['isFinalHomegame'] = 0
+    for item in listClub:
+        team = 'h_' + item[0]
+        tmp_df = df.loc[(df[team] == 1)].groupby('year').max().reset_index()
+        tmp_df = tmp_df[['year', 'match']]
+        for index, row in tmp_df.iterrows():
+            year, match = row[0], row[1]
+            # print(team)
+            # print(year)
+            # print(match)
+            # print('---')
+            df.loc[
+                ((df[team] == 1) & (df['year'] == year) & (df['match'] == match)), 'isFinalHomegame'] = 1
+    return df
 
-# train_df = processFinalHomegame(train_df, list_clubinfo)
-# test_df = processFinalHomegame(test_df, list_clubinfo)
-# # 学習用データの2014年データは前半戦の情報のみ→ホーム最終戦の情報は存在しない。
-# train_df.loc[(train_df['year'] == 2014), 'isFinalHomegame'] = 0
+train_df = processFinalHomegame(train_df, list_clubinfo)
+test_df = processFinalHomegame(test_df, list_clubinfo)
+# 学習用データの2014年データは前半戦の情報のみ→ホーム最終戦の情報は存在しない。
+train_df.loc[(train_df['year'] == 2014), 'isFinalHomegame'] = 0
 
 # %%
 # 2014年の無観客試合(浦和vs清水)を除外
