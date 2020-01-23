@@ -201,10 +201,18 @@ test_df = processHometownDistance(test_df, list_clubinfo)
 # %%
 # 天気から「雨/雪が含まれているか」と「屋内か」を取得
 def processWeather(df):
-    df['isFalling'] = 0
+    df['rainOrSnow'] = 0
     df['isIndoor'] = 0
 
-    df.loc[((df['weather'].str.contains('雨')) | df['weather'].str.contains('雪')), 'isFalling'] = int(1)
+    df.loc[((df['weather'].str.startswith('雨')) | df['weather'].str.startswith('雪')), 'rainOrSnow'] = int(2)
+    df.loc[(
+            (df['rainOrSnow'] == 0) &
+            (
+                (df['weather'].str.contains('雨')) |
+                (df['weather'].str.contains('雪'))
+            )
+        ), 'rainOrSnow'] = 1
+
     df.loc[(df['weather'] == '屋内'), 'isIndoor'] = int(1)
 
     return df
@@ -272,6 +280,10 @@ test_df = processHumidity(test_df)
 # test_df = processFinalHomegame(test_df, list_clubinfo)
 # # 学習用データの2014年データは前半戦の情報のみ→ホーム最終戦の情報は存在しない。
 # train_df.loc[(train_df['year'] == 2014), 'isFinalHomegame'] = 0
+
+# %%
+# 2014年の無観客試合(浦和vs清水)を除外
+train_df = train_df.drop(train_df.index[422])
 
 # %%
 # 不要な列を削除
