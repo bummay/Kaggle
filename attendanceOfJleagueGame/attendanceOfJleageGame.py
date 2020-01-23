@@ -211,7 +211,7 @@ def processWeather(df):
                 (df['weather'].str.contains('雨')) |
                 (df['weather'].str.contains('雪'))
             )
-        ), 'rainOrSnow'] = 1
+        ), 'rainOrSnow'] = int(1)
 
     df.loc[(df['weather'] == '屋内'), 'isIndoor'] = int(1)
 
@@ -321,7 +321,8 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_
 
 reg = xgb.XGBRegressor()
 
-reg_cv = GridSearchCV(reg, {'eval_metric': ['rmse'], 'max_depth': [2, 4, 6], 'n_estimators': [50, 100, 200]}, verbose=1)
+# reg_cv = GridSearchCV(reg, {'eval_metric': ['rmse'], 'max_depth': [2, 4, 6], 'n_estimators': [100, 150, 200]}, verbose=1)
+reg_cv = GridSearchCV(reg, {'eval_metric': ['rmse'], 'max_depth': [6], 'n_estimators': [100]}, verbose=1)
 reg_cv.fit(X_train, y_train)
 
 reg = xgb.XGBRFRegressor(**reg_cv.best_params_)
