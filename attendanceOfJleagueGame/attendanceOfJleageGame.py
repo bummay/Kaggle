@@ -241,45 +241,28 @@ train_df = processHumidity(train_df)
 test_df = processHumidity(test_df)
 
 # %%
-# 年/チームごとにホーム開幕戦のフラグを追加
-def processOpeningHomegame(df, listClub):
-    df['isOpeningHomegame'] = 0
-    for item in listClub:
-        team = 'h_' + item[0]
-        tmp_df = df.loc[(df[team] == 1)].groupby('year').min().reset_index()
-        tmp_df = tmp_df[['year', 'match']]
-        for index, row in tmp_df.iterrows():
-            year, match = row[0], row[1]
-            df.loc[
-                ((df[team] == 1) & (df['year'] == year) & (df['match'] == match)), 'isOpeningHomegame'] = 1
+# テレビ放送は以下のとおり処理
+# スカパー各種とｅ２は削除
+# NHK総合とBS放送があれば、「全国放送あり」とする。
+# NHK総合とBS放送以外の放送があれば、「地方局放送あり」とする。
+# 当然「全国放送も地方局放送もあり」というケースもある。
+
+def processTv(df):
+    df['isNationalWide'] = 0
+    df['isLocal'] = 0
+    for index, row in df.iterrows():
+        tv = row['tv']
+        stations = tv.split('／')
+        filtered = [station for station in stations if ('スカパー' not in station) and ('ｅ２' not in station)]
+        nationalwide = [station for station in filtered if (station == 'ＮＨＫ総合') or ('ＢＳ' in station)]
+        df.at[index, 'isNationalWide'] = (len(nationalwide) > 0) * 1
+        local = [station for station in filtered if (station != 'ＮＨＫ総合') and ('ＢＳ' not in station)]
+        df.at[index, 'isLocal'] = (len(local) > 0) * 1
+
     return df
 
-train_df = processOpeningHomegame(train_df, list_clubinfo)
-# テスト用データは2014年後半戦の情報のみ→ホーム開幕戦の情報は存在しない。
-test_df['isOpeningHomegame'] = 0
-
-# %%
-# 年/チームごとにホーム最終戦のフラグを追加
-def processFinalHomegame(df, listClub):
-    df['isFinalHomegame'] = 0
-    for item in listClub:
-        team = 'h_' + item[0]
-        tmp_df = df.loc[(df[team] == 1)].groupby('year').max().reset_index()
-        tmp_df = tmp_df[['year', 'match']]
-        for index, row in tmp_df.iterrows():
-            year, match = row[0], row[1]
-            # print(team)
-            # print(year)
-            # print(match)
-            # print('---')
-            df.loc[
-                ((df[team] == 1) & (df['year'] == year) & (df['match'] == match)), 'isFinalHomegame'] = 1
-    return df
-
-train_df = processFinalHomegame(train_df, list_clubinfo)
-test_df = processFinalHomegame(test_df, list_clubinfo)
-# 学習用データの2014年データは前半戦の情報のみ→ホーム最終戦の情報は存在しない。
-train_df.loc[(train_df['year'] == 2014), 'isFinalHomegame'] = 0
+train_df = processTv(train_df)
+test_df = processTv(test_df)
 
 # %%
 # 2014年の無観客試合(浦和vs清水)を除外
@@ -322,7 +305,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_
 reg = xgb.XGBRegressor()
 
 # reg_cv = GridSearchCV(reg, {'eval_metric': ['rmse'], 'max_depth': [2, 4, 6], 'n_estimators': [100, 150, 200]}, verbose=1)
-reg_cv = GridSearchCV(reg, {'eval_metric': ['rmse'], 'max_depth': [6], 'n_estimators': [100]}, verbose=1)
+reg_cv = GridSearchCV(reg, {'eval_metric': ['rmse'], 'max_depth': [8], 'n_estimators': [100]}, verbose=1)
 reg_cv.fit(X_train, y_train)
 
 reg = xgb.XGBRFRegressor(**reg_cv.best_params_)
@@ -330,10 +313,14 @@ reg.fit(X_train, y_train)
 
 pred_train = reg.predict(X_train)
 pred_test = reg.predict(X_test)
+
+
 # %%
 mean_squared_error(y_train, pred_train)
 # %%
 mean_squared_error(y_test, pred_test)
+
+
 
 # %%
 importances = pd.Series(reg.feature_importances_, index=X.columns)
