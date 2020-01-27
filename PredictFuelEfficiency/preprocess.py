@@ -2,6 +2,7 @@
 import pandas as pd
 import numpy as np
 import seaborn as sns
+import matplotlib.pyplot as plt
 
 # %%
 # データを読み込み
@@ -31,25 +32,24 @@ def getCountry(df):
     df.loc[((df['manufacturer'] == 'vw') | (df['manufacturer'] == 'vokswagen')), 'manufacturer'] = 'volkswagen'
     df.loc[(df['manufacturer'] == 'mercedes-benz'), 'manufacturer'] = 'mercedes'
 
-    # メーカー名から国名を取得する
-    df['FRA'] = 0
-    df['GBR'] = 0
-    df['GER'] = 0
-    df['ITA'] = 0
-    df['JPN'] = 0
-    df['SWE'] = 0
+    # メーカー名から国名を取得する。
+    # 全部で7カ国あるが、件数が少ない「フランス、イタリア、スウェーデン、イギリス」は一括とする。
     df['USA'] = 1
-    df.loc[((df['manufacturer'] == 'peugeot') | (df['manufacturer'] == 'renault')), 'FRA'] = 1
+    df['JPN'] = 0
+    df['GER'] = 0
+    # df['FRA'] = 0
+    # df['GBR'] = 0
+    # df['ITA'] = 0
+    # df['SWE'] = 0
     df.loc[((df['manufacturer'] == 'audi') | (df['manufacturer'] == 'bmw') | (df['manufacturer'] == 'opel') | (
         df['manufacturer'] == 'mercedes') | (df['manufacturer'] == 'volkswagen')), 'GER'] = 1
-    df.loc[(df['manufacturer'] == 'fiat'), 'ITA'] = 1
     df.loc[((df['manufacturer'] == 'datsun') | (df['manufacturer'] == 'honda') | (df['manufacturer'] == 'mazda') | (df['manufacturer'] == 'nissan') | (df['manufacturer'] == 'subaru') | (df['manufacturer'] == 'toyota')), 'JPN'] = 1
-    df.loc[((df['manufacturer'] == 'volvo') | (df['manufacturer'] == 'saab')), 'SWE'] = 1
-    df.loc[(df['manufacturer'] == 'triumph'), 'GBR'] = 1
+    # df.loc[((df['manufacturer'] == 'peugeot') | (df['manufacturer'] == 'renault')), 'FRA'] = 1
+    # df.loc[(df['manufacturer'] == 'fiat'), 'ITA'] = 1
+    # df.loc[((df['manufacturer'] == 'volvo') | (df['manufacturer'] == 'saab')), 'SWE'] = 1
+    # df.loc[(df['manufacturer'] == 'triumph'), 'GBR'] = 1
     df.loc[(
-        (df['FRA'] == 1) | (df['GER'] == 1) |
-        (df['ITA'] == 1) | (df['JPN'] == 1) |
-        (df['SWE'] == 1) | (df['GBR'] == 1)),'USA'
+        (df['JPN'] == 1) | (df['GER'] == 1)),'USA'
     ] = 0
     df = df.drop(['car name', 'manufacturer'], axis=1)
     df = pd.get_dummies(df)
@@ -107,39 +107,52 @@ train_df.to_csv(inputDir + 'train_df.csv', index=False)
 test_df.to_csv(inputDir + 'test_df.csv', index=False)
 
 
-# # %%
-# # 気筒数と燃費の散布：4>6>8 の順によさげ
-# sns.scatterplot(data = train_df, x='cylinders', y = 'mpg')
-
-# # %%
-# # 排気量と燃費の散布
-# # 排気量が大きいほど
-# #   ・燃費が低そう
-# #   ・燃費のばらつきが小さい
-# sns.scatterplot(data = train_df, x='displacement', y = 'mpg')
-
-# # %%
-# # 馬力と燃費の散布
-# # 馬力が大きいほど
-# #   ・燃費が低そう
-# #   ・燃費のばらつきが小さい
-# sns.scatterplot(data=train_df, x='horsepower', y='mpg')
-
-# # %%
-# # 車重と燃費の散布
-# # 車重が重いほど
-# #   ・燃費が低そう
-# #   ・燃費のばらつきが少ない
-# sns.scatterplot(data = train_df, x='weight', y = 'mpg')
-
-# # %%
-# # 加速度と燃費の散布：加速度が低いと燃費も悪そう
-# sns.scatterplot(data = train_df, x='acceleration', y = 'mpg')
-
-# # %%
-# # MYと燃費の散布：新しいほど燃費はよさそう
-# sns.scatterplot(data = train_df, x='model year', y = 'mpg')
-
-
+# %%
+# 気筒数と燃費の散布：4>6>8 の順によさげ
+sns.scatterplot(data = train_df, x='cylinders', y = 'mpg')
 
 # %%
+# 排気量と燃費の散布
+# 排気量が大きいほど
+#   ・燃費が低そう
+#   ・燃費のばらつきが小さい
+sns.scatterplot(data = train_df, x='displacement', y = 'mpg')
+
+# %%
+# 馬力と燃費の散布
+# 馬力が大きいほど
+#   ・燃費が低そう
+#   ・燃費のばらつきが小さい
+sns.scatterplot(data=train_df, x='horsepower', y='mpg')
+
+# %%
+# 車重と燃費の散布
+# 車重が重いほど
+#   ・燃費が低そう
+#   ・燃費のばらつきが少ない
+sns.scatterplot(data = train_df, x='weight', y = 'mpg')
+
+# %%
+# 加速度と燃費の散布：加速度が低いと燃費も悪そう
+sns.scatterplot(data = train_df, x='acceleration', y = 'mpg')
+
+# %%
+# MYと燃費の散布：新しいほど燃費はよさそう
+sns.scatterplot(data = train_df, x='model year', y = 'mpg')
+
+# %%
+sns.scatterplot(data=train_df, x='FRA', y='mpg')
+# %%
+sns.scatterplot(data=train_df, x='GBR', y='mpg')
+# %%
+sns.scatterplot(data=train_df, x='GER', y='mpg')
+# %%
+sns.scatterplot(data=train_df, x='ITA', y='mpg')
+# %%
+sns.scatterplot(data=train_df, x='JPN', y='mpg')
+# %%
+sns.scatterplot(data=train_df, x='SWE', y='mpg')
+# %%
+sns.scatterplot(data=train_df, x='USA', y='mpg')
+
+
