@@ -34,10 +34,11 @@ X_train, X_test, y_train, y_test = train_test_split(
 # reg = xgb.XGBRFRegressor(**reg_cv.best_params_)
 # reg.fit(X_train, y_train)
 
+
+# %%
 reg = LinearRegression()
 reg.fit(X_train, y_train)
-
-print(pd.DataFrame({'Name': X_train.columns, 'Coefficients': np.abs(reg.coef_)}).sort_values(by='Coefficients'))
+print(pd.DataFrame({'Name': X_train.columns, 'Coefficients': reg.coef_}).sort_values(by='Coefficients'))
 print(reg.intercept_)
 
 pred_train = reg.predict(X_train)

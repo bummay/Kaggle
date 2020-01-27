@@ -41,7 +41,6 @@ def getCountry(df):
     df['GBR'] = 0
     df['ITA'] = 0
     df['SWE'] = 0
-    df['EUR'] = 0
     df.loc[((df['manufacturer'] == 'audi') | (df['manufacturer'] == 'bmw') | (df['manufacturer'] == 'opel') | (
         df['manufacturer'] == 'mercedes') | (df['manufacturer'] == 'volkswagen')), 'GER'] = 1
     df.loc[((df['manufacturer'] == 'datsun') | (df['manufacturer'] == 'honda') | (df['manufacturer'] == 'mazda') | (df['manufacturer'] == 'nissan') | (df['manufacturer'] == 'subaru') | (df['manufacturer'] == 'toyota')), 'JPN'] = 1
@@ -49,12 +48,11 @@ def getCountry(df):
     df.loc[(df['manufacturer'] == 'fiat'), 'ITA'] = 1
     df.loc[((df['manufacturer'] == 'volvo') | (df['manufacturer'] == 'saab')), 'SWE'] = 1
     df.loc[(df['manufacturer'] == 'triumph'), 'GBR'] = 1
-    df.loc[(
-        (df['FRA'] == 1) | (df['GBR'] == 1) | (df['ITA'] == 1) | (df['SWE'] == 1)
-    ), 'EUR'] = 1
 
     df.loc[(
-        (df['JPN'] == 1) | (df['GER'] == 1) | (df['EUR'] == 1)),'USA'
+        (df['JPN'] == 1) | (df['GER'] == 1) | (df['FRA'] == 1) |
+        (df['ITA'] == 1) | (df['SWE'] == 1) | (df['GBR'] == 1)
+        ),'USA'
     ] = 0
     df = df.drop(['car name', 'manufacturer'], axis=1)
     df = pd.get_dummies(df)
@@ -63,51 +61,53 @@ def getCountry(df):
 
 def dropName(df):
     df = df.drop(['origin'
-        , 'acceleration'
-        , 'FRA', 'ITA', 'SWE', 'GBR'
+    ,'acceleration'
     ], axis=1)
     return df
 
-def fillHp(df, filled):
-    df = df.fillna({'horsepower': filled})
-    return df
+def fillHp(df):
+    dfSum = df['horsepower'].sum()
+    dfCount = df['horsepower'].count()
+    fhp = round((dfSum / dfCount), 0)
+    df = df.fillna({'horsepower': fhp})
 
+    return df
 
 def regularization(df, colName):
     Xmax = df[colName].max()
     Xmin = df[colName].min()
-
+    # 各列の値を「平均=0、標準偏差=1」に変換
     df[colName] = (df[colName] - df[colName].mean()) / df[colName].std()
+    df[colName] = df[colName].fillna(0)
     return df
 
 def preprocess(df):
     vNa = '?'
     df = replaceNa(df, vNa)
     df['horsepower'] = df['horsepower'].astype(float)
+    df = fillHp(df)
     df = getCountry(df)
     df = dropName(df)
-
-
-    lstColName = ['cylinders', 'displacement', 'horsepower', 'weight', 'model year']
-    for colName in lstColName:
-        regularization(df, colName)
 
     return df
 
 
 # %%
-train_df = preprocess(train_df)
-test_df = preprocess(test_df)
+# 学習用と評価用のデータを個別に標準化しては意味がないので両者を結合する。
+concat_df = pd.concat([train_df, test_df], sort=True)
+concat_df = concat_df.drop(['mpg'], axis=1)
+concat_df = preprocess(concat_df)
 
-train_sum = train_df['horsepower'].sum()
-test_sum = test_df['horsepower'].sum()
-train_count = train_df['horsepower'].count()
-test_count = test_df['horsepower'].count()
+lstColName = ['cylinders', 'displacement', 'horsepower', 'weight',
+                'model year', 'USA', 'JPN', 'GER', 'FRA', 'GBR', 'ITA', 'SWE']
+for colName in lstColName:
+    regularization(concat_df, colName)
+# %%
+tr_df = train_df[['id', 'mpg']]
+ts_df = test_df['id']
 
-fhp = round((train_sum + test_sum) / (train_count + test_count) , 0)
-
-train_df = fillHp(train_df, fhp)
-test_df = fillHp(test_df, fhp)
+train_df = pd.merge(tr_df, concat_df, on='id')
+test_df = pd.merge(ts_df, concat_df, on='id')
 
 
 # %%
