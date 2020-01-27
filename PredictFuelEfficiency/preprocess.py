@@ -37,19 +37,24 @@ def getCountry(df):
     df['USA'] = 1
     df['JPN'] = 0
     df['GER'] = 0
-    # df['FRA'] = 0
-    # df['GBR'] = 0
-    # df['ITA'] = 0
-    # df['SWE'] = 0
+    df['FRA'] = 0
+    df['GBR'] = 0
+    df['ITA'] = 0
+    df['SWE'] = 0
+    df['EUR'] = 0
     df.loc[((df['manufacturer'] == 'audi') | (df['manufacturer'] == 'bmw') | (df['manufacturer'] == 'opel') | (
         df['manufacturer'] == 'mercedes') | (df['manufacturer'] == 'volkswagen')), 'GER'] = 1
     df.loc[((df['manufacturer'] == 'datsun') | (df['manufacturer'] == 'honda') | (df['manufacturer'] == 'mazda') | (df['manufacturer'] == 'nissan') | (df['manufacturer'] == 'subaru') | (df['manufacturer'] == 'toyota')), 'JPN'] = 1
-    # df.loc[((df['manufacturer'] == 'peugeot') | (df['manufacturer'] == 'renault')), 'FRA'] = 1
-    # df.loc[(df['manufacturer'] == 'fiat'), 'ITA'] = 1
-    # df.loc[((df['manufacturer'] == 'volvo') | (df['manufacturer'] == 'saab')), 'SWE'] = 1
-    # df.loc[(df['manufacturer'] == 'triumph'), 'GBR'] = 1
+    df.loc[((df['manufacturer'] == 'peugeot') | (df['manufacturer'] == 'renault')), 'FRA'] = 1
+    df.loc[(df['manufacturer'] == 'fiat'), 'ITA'] = 1
+    df.loc[((df['manufacturer'] == 'volvo') | (df['manufacturer'] == 'saab')), 'SWE'] = 1
+    df.loc[(df['manufacturer'] == 'triumph'), 'GBR'] = 1
     df.loc[(
-        (df['JPN'] == 1) | (df['GER'] == 1)),'USA'
+        (df['FRA'] == 1) | (df['GBR'] == 1) | (df['ITA'] == 1) | (df['SWE'] == 1)
+    ), 'EUR'] = 1
+
+    df.loc[(
+        (df['JPN'] == 1) | (df['GER'] == 1) | (df['EUR'] == 1)),'USA'
     ] = 0
     df = df.drop(['car name', 'manufacturer'], axis=1)
     df = pd.get_dummies(df)
@@ -57,7 +62,10 @@ def getCountry(df):
     return df
 
 def dropName(df):
-    df = df.drop(['origin'], axis=1)
+    df = df.drop(['origin'
+        , 'acceleration'
+        , 'FRA', 'ITA', 'SWE', 'GBR'
+    ], axis=1)
     return df
 
 def fillHp(df, filled):
@@ -80,7 +88,7 @@ def preprocess(df):
     df = dropName(df)
 
 
-    lstColName = ['cylinders', 'displacement', 'horsepower', 'weight', 'acceleration', 'model year']
+    lstColName = ['cylinders', 'displacement', 'horsepower', 'weight', 'model year']
     for colName in lstColName:
         regularization(df, colName)
 
@@ -151,7 +159,7 @@ sns.scatterplot(data=train_df, x='ITA', y='mpg')
 # %%
 sns.scatterplot(data=train_df, x='JPN', y='mpg')
 # %%
-sns.scatterplot(data=train_df, x='SWE', y='mpg')
+sns.scatterplot(data=train_df, x='EUR', y='mpg')
 # %%
 sns.scatterplot(data=train_df, x='USA', y='mpg')
 
