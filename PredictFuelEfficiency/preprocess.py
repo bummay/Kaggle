@@ -37,21 +37,12 @@ def getCountry(df):
     df['USA'] = 1
     df['JPN'] = 0
     df['GER'] = 0
-    df['FRA'] = 0
-    df['GBR'] = 0
-    df['ITA'] = 0
-    df['SWE'] = 0
     df.loc[((df['manufacturer'] == 'audi') | (df['manufacturer'] == 'bmw') | (df['manufacturer'] == 'opel') | (
         df['manufacturer'] == 'mercedes') | (df['manufacturer'] == 'volkswagen')), 'GER'] = 1
     df.loc[((df['manufacturer'] == 'datsun') | (df['manufacturer'] == 'honda') | (df['manufacturer'] == 'mazda') | (df['manufacturer'] == 'nissan') | (df['manufacturer'] == 'subaru') | (df['manufacturer'] == 'toyota')), 'JPN'] = 1
-    df.loc[((df['manufacturer'] == 'peugeot') | (df['manufacturer'] == 'renault')), 'FRA'] = 1
-    df.loc[(df['manufacturer'] == 'fiat'), 'ITA'] = 1
-    df.loc[((df['manufacturer'] == 'volvo') | (df['manufacturer'] == 'saab')), 'SWE'] = 1
-    df.loc[(df['manufacturer'] == 'triumph'), 'GBR'] = 1
 
     df.loc[(
-        (df['JPN'] == 1) | (df['GER'] == 1) | (df['FRA'] == 1) |
-        (df['ITA'] == 1) | (df['SWE'] == 1) | (df['GBR'] == 1)
+        (df['JPN'] == 1) | (df['GER'] == 1)
         ),'USA'
     ] = 0
     df = df.drop(['car name', 'manufacturer'], axis=1)
@@ -99,7 +90,9 @@ concat_df = concat_df.drop(['mpg'], axis=1)
 concat_df = preprocess(concat_df)
 
 lstColName = ['cylinders', 'displacement', 'horsepower', 'weight',
-                'model year', 'USA', 'JPN', 'GER', 'FRA', 'GBR', 'ITA', 'SWE']
+                'model year', 'USA', 'JPN', 'GER'
+                # , 'FRA', 'GBR', 'ITA', 'SWE'
+                ]
 for colName in lstColName:
     regularization(concat_df, colName)
 # %%
