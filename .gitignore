@@ -10,3 +10,6 @@ attendanceOfJleagueGame/input/train_add.csv
 attendanceOfJleagueGame/output/sample.csv
 attendanceOfJleagueGame/output/sample_submit.csv
 attendanceOfJleagueGame/output/train_df.csv
+wine/wine.py
+wine/input/winequality-red.csv
+PredictFuelEfficiency/__pycache__/preprocess.cpython-37.pyc
