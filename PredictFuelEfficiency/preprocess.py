@@ -55,32 +55,32 @@ def getCountry(df):
             )
         , 'USA'] = 0
 
-    df = df.drop(['car name', 'manufacturer'], axis=1)
-    df = pd.get_dummies(df)
+    # df = df.drop(['car name'
+    # , 'manufacturer'
+    # ], axis=1)
+    # df = pd.get_dummies(df)
 
     return df
 
 def dropName(df):
-    # df = df.drop(['origin'
-    # ,'acceleration'
-    # ], axis=1)
+    df = df.drop(['manufacturer', 'car name'
+    ], axis=1)
     return df
 
 def fillHp(df):
-    dfSum = df['horsepower'].sum()
-    dfCount = df['horsepower'].count()
-    fhp = round((dfSum / dfCount), 0)
-    df = df.fillna({'horsepower': fhp})
-
+    # dfSum = df['horsepower'].sum()
+    # dfCount = df['horsepower'].count()
+    # fhp = round((dfSum / dfCount), 0)
+    # df = df.fillna({'horsepower': fhp})
     return df
 
 def regularization(df, colName):
-    Xmax = df[colName].max()
-    Xmin = df[colName].min()
-    # 各列の値を「平均=0、標準偏差=1」に変換
-    df[colName] = (df[colName] - df[colName].mean()) / df[colName].std()
-    df[colName] = df[colName].fillna(0)
-    # df[colName] = preprocessing.scale(df[colName])
+    # Xmax = df[colName].max()
+    # Xmin = df[colName].min()
+    # # 各列の値を「平均=0、標準偏差=1」に変換
+    # df[colName] = (df[colName] - df[colName].mean()) / df[colName].std()
+    # df[colName] = df[colName].fillna(0)
+    df[colName] = preprocessing.scale(df[colName])
 
     return df
 
@@ -88,8 +88,9 @@ def preprocess(df):
     vNa = '?'
     df = replaceNa(df, vNa)
     df['horsepower'] = df['horsepower'].astype(float)
-    df = fillHp(df)
     df = getCountry(df)
+    # df = fillHp(df)
+    df['horsepower'] = df.groupby(['manufacturer', 'cylinders'])['horsepower'].transform(lambda x:x.fillna(x.mean()))
     df = dropName(df)
 
     return df
@@ -101,10 +102,12 @@ concat_df = pd.concat([train_df, test_df], sort=True)
 concat_df = concat_df.drop(['mpg'], axis=1)
 concat_df = preprocess(concat_df)
 
+
+# %%
 lstColName = ['cylinders', 'displacement', 'horsepower', 'weight',
                 'model year', 'USA', 'JPN', 'GER'
                 , 'acceleration', 'origin'
-                # , 'FRA', 'GBR', 'ITA', 'SWE'
+                # , 'GER', 'FRA', 'GBR', 'ITA', 'SWE'
                 ]
 for colName in lstColName:
     regularization(concat_df, colName)
