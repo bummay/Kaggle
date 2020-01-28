@@ -33,7 +33,8 @@ def getCountry(df):
     df.loc[(df['manufacturer'] == 'mercedes-benz'), 'manufacturer'] = 'mercedes'
 
     # メーカー名から国名を取得する。
-    # 全部で7カ国あるが、件数が少ない「フランス、イタリア、スウェーデン、イギリス」は一括とする。
+    # 全部で7カ国あるが、件数が少ない「フランス、イタリア、スウェーデン、イギリス」はその他扱い
+    # 日独米の3カ国+その他の4種類に分ける
     df['USA'] = 1
     df['JPN'] = 0
     df['GER'] = 0
@@ -42,9 +43,17 @@ def getCountry(df):
     df.loc[((df['manufacturer'] == 'datsun') | (df['manufacturer'] == 'honda') | (df['manufacturer'] == 'mazda') | (df['manufacturer'] == 'nissan') | (df['manufacturer'] == 'subaru') | (df['manufacturer'] == 'toyota')), 'JPN'] = 1
 
     df.loc[(
-        (df['JPN'] == 1) | (df['GER'] == 1)
-        ),'USA'
-    ] = 0
+            (df['manufacturer'] == 'peugeot') |
+            (df['manufacturer'] == 'renault') |
+            (df['manufacturer'] == 'fiat') |
+            (df['manufacturer'] == 'volvo') |
+            (df['manufacturer'] == 'saab') |
+            (df['manufacturer'] == 'triumph') |
+            (df['JPN'] == 1) |
+            (df['GER'] == 1)
+            )
+        , 'USA'] = 0
+
     df = df.drop(['car name', 'manufacturer'], axis=1)
     df = pd.get_dummies(df)
 
