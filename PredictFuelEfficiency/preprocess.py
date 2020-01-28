@@ -4,22 +4,22 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn import model_selection, preprocessing, linear_model
+from scipy.stats import skew
 
 # %%
 # データを読み込み
-#
-# 欠損している(値が「?」)horsepower列をNaNに変換
 
 inputDir = 'input/'
 
 train_df = pd.read_table(inputDir + 'train.tsv')
 test_df = pd.read_table(inputDir + 'test.tsv')
+test_df['mpg'] = np.nan
 
 def replaceNa(df, valNa):
     df = df.replace(valNa, np.nan)
     return df
 
-def getCountry(df):
+def getManufacturer(df):
     # まず車名からメーカー名を取得する
     for index, row in df.iterrows():
         name = row['car name']
@@ -33,65 +33,69 @@ def getCountry(df):
     df.loc[((df['manufacturer'] == 'vw') | (df['manufacturer'] == 'vokswagen')), 'manufacturer'] = 'volkswagen'
     df.loc[(df['manufacturer'] == 'mercedes-benz'), 'manufacturer'] = 'mercedes'
 
-    # メーカー名から国名を取得する。
-    # 全部で7カ国あるが、件数が少ない「フランス、イタリア、スウェーデン、イギリス」はその他扱い
-    # 日独米の3カ国+その他の4種類に分ける
-    df['USA'] = 1
-    df['JPN'] = 0
-    df['GER'] = 0
-    df.loc[((df['manufacturer'] == 'audi') | (df['manufacturer'] == 'bmw') | (df['manufacturer'] == 'opel') | (
-        df['manufacturer'] == 'mercedes') | (df['manufacturer'] == 'volkswagen')), 'GER'] = 1
-    df.loc[((df['manufacturer'] == 'datsun') | (df['manufacturer'] == 'honda') | (df['manufacturer'] == 'mazda') | (df['manufacturer'] == 'nissan') | (df['manufacturer'] == 'subaru') | (df['manufacturer'] == 'toyota')), 'JPN'] = 1
+    df.drop('car name', axis=1, inplace=True)
+    # # メーカー名から国名を取得する。
+    # # 全部で7カ国あるが、件数が少ない「フランス、イタリア、スウェーデン、イギリス」はその他扱い
+    # # 日独米の3カ国+その他の4種類に分ける
+    # df['USA'] = 1
+    # df['JPN'] = 0
+    # df['GER'] = 0
+    # df.loc[((df['manufacturer'] == 'audi') | (df['manufacturer'] == 'bmw') | (df['manufacturer'] == 'opel') | (
+    #     df['manufacturer'] == 'mercedes') | (df['manufacturer'] == 'volkswagen')), 'GER'] = 1
+    # df.loc[((df['manufacturer'] == 'datsun') | (df['manufacturer'] == 'honda') | (df['manufacturer'] == 'mazda') | (df['manufacturer'] == 'nissan') | (df['manufacturer'] == 'subaru') | (df['manufacturer'] == 'toyota')), 'JPN'] = 1
 
-    df.loc[(
-            (df['manufacturer'] == 'peugeot') |
-            (df['manufacturer'] == 'renault') |
-            (df['manufacturer'] == 'fiat') |
-            (df['manufacturer'] == 'volvo') |
-            (df['manufacturer'] == 'saab') |
-            (df['manufacturer'] == 'triumph') |
-            (df['JPN'] == 1) |
-            (df['GER'] == 1)
-            )
-        , 'USA'] = 0
+    # df.loc[(
+    #         (df['manufacturer'] == 'peugeot') |
+    #         (df['manufacturer'] == 'renault') |
+    #         (df['manufacturer'] == 'fiat') |
+    #         (df['manufacturer'] == 'volvo') |
+    #         (df['manufacturer'] == 'saab') |
+    #         (df['manufacturer'] == 'triumph') |
+    #         (df['JPN'] == 1) |
+    #         (df['GER'] == 1)
+    #         )
+    #     , 'USA'] = 0
 
-    # df = df.drop(['car name'
-    # , 'manufacturer'
-    # ], axis=1)
-    # df = pd.get_dummies(df)
-
-    return df
-
-def dropName(df):
-    df = df.drop(['manufacturer', 'car name'
-    ], axis=1)
-    return df
-
-def fillHp(df):
-    # dfSum = df['horsepower'].sum()
-    # dfCount = df['horsepower'].count()
-    # fhp = round((dfSum / dfCount), 0)
-    # df = df.fillna({'horsepower': fhp})
     return df
 
 def regularization(df, colName):
-    # Xmax = df[colName].max()
-    # Xmin = df[colName].min()
-    # # 各列の値を「平均=0、標準偏差=1」に変換
-    # df[colName] = (df[colName] - df[colName].mean()) / df[colName].std()
-    # df[colName] = df[colName].fillna(0)
     df[colName] = preprocessing.scale(df[colName])
 
     return df
 
-def preprocess(df):
-    vNa = '?'
-    df = replaceNa(df, vNa)
+def convertToStr(df, colName):
+    df[colName] = df[colName].astype(str)
+
+    return df
+
+def fillHorsepower(df):
+    df.replace('?', np.nan, inplace=True)
     df['horsepower'] = df['horsepower'].astype(float)
-    df = getCountry(df)
-    # df = fillHp(df)
-    df['horsepower'] = df.groupby(['manufacturer', 'cylinders'])['horsepower'].transform(lambda x:x.fillna(x.mean()))
-    df = dropName(df)
+    df['horsepower'] = df.groupby(['manufacturer', 'cylinders'])[
+        'horsepower'].transform(lambda x: x.fillna(x.mean()))
+
+    return df
+
+def preprocess(df):
+    # メーカー名を取得
+    df = getManufacturer(df)
+
+    # 順序尺度の説明変数を文字列に変換
+    lstToStr = ['cylinders', 'origin']
+    for colName in lstToStr:
+        convertToStr(df, colName)
+
+    # 馬力の欠損値を「メーカー/気筒数」ごとの平均値で穴埋め
+    df = fillHorsepower(df)
+
+    # 数値型説明変数の歪度を測定し、歪度が大きいものは対数をとる。
+    numeric_features = df.dtypes[df.dtypes != 'object'].index
+    skewed_features = df[numeric_features].apply(lambda x:skew(x.dropna()))
+    skewed_features = skewed_features[skewed_features > 0.75].index
+
+    df = pd.get_dummies(data = df,dummy_na=True)
+    df = df.fillna(df.mean())
+    df[skewed_features] = np.log1p(df[skewed_features])
 
     return df
 
@@ -99,25 +103,23 @@ def preprocess(df):
 # %%
 # 学習用と評価用のデータを個別に標準化しては意味がないので両者を結合する。
 concat_df = pd.concat([train_df, test_df], sort=True)
-concat_df = concat_df.drop(['mpg'], axis=1)
+mpg = concat_df['mpg'].values
 concat_df = preprocess(concat_df)
+concat_df['mpg'] = mpg
 
 
 # %%
-lstColName = ['cylinders', 'displacement', 'horsepower', 'weight',
-                'model year', 'USA', 'JPN', 'GER'
-                , 'acceleration', 'origin'
-                # , 'GER', 'FRA', 'GBR', 'ITA', 'SWE'
-                ]
-for colName in lstColName:
-    regularization(concat_df, colName)
+# lstColName = ['displacement', 'horsepower', 'weight',
+#                 'model year', 'USA', 'JPN', 'GER'
+#                 , 'acceleration'
+#                 # , 'GER', 'FRA', 'GBR', 'ITA', 'SWE'
+#                 ]
+# for colName in lstColName:
+#     regularization(concat_df, colName)
 # %%
-tr_df = train_df[['id', 'mpg']]
-ts_df = test_df['id']
-
-train_df = pd.merge(tr_df, concat_df, on='id')
-test_df = pd.merge(ts_df, concat_df, on='id')
-
+train_df = concat_df[!concat_df.mpg.isna() == False]
+test_df = concat_df[concat_df.mpg.isna()]
+test_df.drop(['mpg'], axis=1, inplace=True)
 
 # %%
 train_df.to_csv(inputDir + 'train_df.csv', index=False)
