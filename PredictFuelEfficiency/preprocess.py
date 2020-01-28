@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from sklearn import model_selection, preprocessing, linear_model
 
 # %%
 # データを読み込み
@@ -60,9 +61,9 @@ def getCountry(df):
     return df
 
 def dropName(df):
-    df = df.drop(['origin'
-    ,'acceleration'
-    ], axis=1)
+    # df = df.drop(['origin'
+    # ,'acceleration'
+    # ], axis=1)
     return df
 
 def fillHp(df):
@@ -79,6 +80,8 @@ def regularization(df, colName):
     # 各列の値を「平均=0、標準偏差=1」に変換
     df[colName] = (df[colName] - df[colName].mean()) / df[colName].std()
     df[colName] = df[colName].fillna(0)
+    # df[colName] = preprocessing.scale(df[colName])
+
     return df
 
 def preprocess(df):
@@ -100,6 +103,7 @@ concat_df = preprocess(concat_df)
 
 lstColName = ['cylinders', 'displacement', 'horsepower', 'weight',
                 'model year', 'USA', 'JPN', 'GER'
+                , 'acceleration', 'origin'
                 # , 'FRA', 'GBR', 'ITA', 'SWE'
                 ]
 for colName in lstColName:
