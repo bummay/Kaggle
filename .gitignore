@@ -10,3 +10,6 @@ attendanceOfJleagueGame/input/train_add.csv
 attendanceOfJleagueGame/output/sample.csv
 attendanceOfJleagueGame/output/sample_submit.csv
 attendanceOfJleagueGame/output/train_df.csv
+tutorial/input/historical_transactions_AtoI.csv
+tutorial/input/historical_transactions_X.csv
+tutorial/input/user_table.csv
