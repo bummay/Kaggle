@@ -11,7 +11,7 @@ import pandas.tseries.offsets as offsets
 
 import numpy as np
 import matplotlib.pyplot as plt
-# import seaborn as sns
+import seaborn as sns
 from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import fbeta_score
@@ -20,6 +20,7 @@ from sklearn.metrics.scorer import make_scorer
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split
 from pyproj import Geod
+
 
 # %%
 # 諸情報の読み込み
@@ -41,6 +42,8 @@ train_df = train_df.sort_values('id')
 del train_add_df
 
 test_df = pd.read_csv(inputDir + 'test.csv')
+# 2014年の無観客試合(浦和vs清水)を除外
+train_df = train_df.drop(train_df.index[422])
 
 # cond_dfは以下の項目のみ残す。
 #   ホームチームスコア
@@ -95,9 +98,19 @@ def processStage(df):
 train_df = processStage(train_df)
 test_df = processStage(test_df)
 
+# %%
+# 節数→とりあえず削除
+def processMatch(df):
+    df.drop(['match'], axis=1, inplace=True)
+    return df
+
+train_df = processMatch(train_df)
+test_df = processMatch(test_df)
+
 
 # %%
-# gamedayから「当日が休日か」「翌日が休日か」を取得
+# gamedayから「月」と「当日が休日か」と「翌日が休日か」を取得
+# gamedayとyearは削除
 def processGameday(df):
     df['month'] = df['gameday'].str[:2].astype(int)
     df['gamedate'] = pd.to_datetime((df['year'].astype(str) + '/' + df['gameday']).str[:10])
@@ -111,19 +124,17 @@ def processGameday(df):
     df['nextIsHoliday'] = ((df['nextday'].map(
         jpholiday.is_holiday).astype(int) == 1) | (df['nextday'].dt.weekday > 4)).astype(int)
 
-    df.drop(['gamedate', 'nextday', 'weekday'], axis=1, inplace=True)
+    df.drop(['gameday','gamedate', 'nextday', 'weekday', 'year'], axis=1, inplace=True)
     return df
 
 train_df = processGameday(train_df)
 test_df = processGameday(test_df)
 
 # %%
-# timeの分以降を削除。18時以降の開始はナイトゲーム扱いとして列を追加
-# （翌日が休日ではない日のナイトゲームは客足が鈍るかもしれない）
+# timeの分以降を削除。
 def processTime(df):
     df['hour'] = df['time'].str[:2].astype(int)
-
-    df['isNightGame'] = (df['hour'] > 17) * 1
+    df.drop(['time'], axis=1, inplace=True)
 
     return df
 
@@ -140,39 +151,16 @@ def processTeam(df):
         df[a_code] = 0
 
         for team in item[1]:
-            df.loc[
-                (df['home'] == team), h_code] = 1
-            df.loc[
-                (df['away'] == team), a_code] = 1
+            df.loc[(df['home'] == team), h_code] = 1
+            df.loc[(df['home'] == team), 'home'] = item[0]
+            df.loc[(df['away'] == team), a_code] = 1
+            df.loc[(df['away'] == team), 'away'] = item[0]
 
     return df
 
 train_df = processTeam(train_df)
 test_df = processTeam(test_df)
 
-# %%
-# スタジアムの情報から「ホームスタジアム開催か」と「ホームスタジアムではないが都道府県内のスタジアムで開催か」を取得
-def processHomeClass(df, listClub):
-    df['heldInHomeStadium'] = 0
-    df['heldInHomeTown'] = 0
-    for item in listClub:
-        team = 'h_' + item[0]
-        for stadium in item[2]:
-            df.loc[
-                ((df[team] == 1) & (df['stadium'] == stadium)), 'heldInHomeStadium'] = 1
-        for subStadium in item[3]:
-            df.loc[
-                ((df[team] == 1) & (df['stadium'] == subStadium)), 'heldInHomeTown'] = 1
-
-def processStadium(df):
-
-    processHomeClass(df, list_clubinfo)
-    return df
-
-train_df = processStadium(train_df)
-test_df = processStadium(test_df)
-
-# %%
 # ホームタウン間の距離を計測する。
 # これは2点間の距離を計測する関数
 def get_distance(startLon, startLat, toLon, toLat):
@@ -181,7 +169,7 @@ def get_distance(startLon, startLat, toLon, toLat):
 
     return round(d * 0.001, 1)
 
-# ホーム/アウェイの両チームのホームタウン座標間の距離を測定
+# ホーム/アウェイの両チームのホームタウン座標間の距離を測定して100km刻みで区分け
 def processHometownDistance(df, listClub):
     df['homeLon'] = 0.000000
     df['homeLat'] = 0.000000
@@ -197,32 +185,51 @@ def processHometownDistance(df, listClub):
         df.loc[(df['a_' + team] == 1), 'awayLon'] = Lon
 
     for index, row in df.iterrows():
-        df.at[index, 'hometownDistance'] = int(get_distance(row['homeLon'], row['homeLat'], row['awayLon'], row['awayLat']) // 50)
+        df.at[index, 'hometownDistance'] = int(get_distance(row['homeLon'], row['homeLat'], row['awayLon'], row['awayLat']) // 100)
 
     df.drop(['homeLat', 'homeLon', 'awayLat', 'awayLon'], axis=1, inplace=True)
+
     return df
 
 train_df = processHometownDistance(train_df, list_clubinfo)
 test_df = processHometownDistance(test_df, list_clubinfo)
 
+# %%
+# スタジアム名はもういらないので削除
+def processStadium(df):
+    df.drop(['stadium'], axis=1, inplace=True)
+
+    return df
+
+train_df = processStadium(train_df)
+test_df = processStadium(test_df)
 
 # %%
-# 天気から「雨/雪が含まれているか」と「屋内か」を取得
+# いわゆる「ダービーマッチ」の対戦相手かを判断する
+# ここでチーム名(ホーム/アウェイ)はいらなくなるので削除
+def processRival(df, list_rival):
+    df['isDerby'] = 0
+    for index, row in df.iterrows():
+        home = row['home']
+        away = row['away']
+        for item in list_rival:
+            if (home in item) & (away in item):
+                df.at[index, 'isDerby'] = int(1)
+
+    df.drop(['home', 'away'], axis=1, inplace=True)
+    return df
+
+train_df = processRival(train_df, list_rival)
+test_df = processRival(test_df, list_rival)
+
+# %%
+# 天気から「雨/雪が含まれているか」を取得
+# weatherを削除
 def processWeather(df):
-    df['rainOrSnow'] = 0
-    df['isIndoor'] = 0
+    df['RainOrSnow'] = 0
 
-    df.loc[((df['weather'].str.startswith('雨')) | df['weather'].str.startswith('雪')), 'rainOrSnow'] = int(2)
-    df.loc[(
-            (df['rainOrSnow'] == 0) &
-            (
-                (df['weather'].str.contains('雨')) |
-                (df['weather'].str.contains('雪'))
-            )
-        ), 'rainOrSnow'] = int(1)
-
-    df.loc[(df['weather'] == '屋内'), 'isIndoor'] = int(1)
-
+    df.loc[((df['weather'].str.startswith('雨')) | df['weather'].str.startswith('雪')), 'RainOrSnow'] = int(1)
+    df.drop(['weather'], axis=1, inplace=True)
     return df
 
 train_df = processWeather(train_df)
@@ -231,7 +238,8 @@ test_df = processWeather(test_df)
 # %%
 # 気温は5度刻みの値に変換
 def processTemperature(df):
-    df['temperature'] = (df['temperature'] / 5).round().astype(int)
+    df['temperature_index'] = (df['temperature'] // 5).astype(int)
+    df.drop(['temperature'], axis=1, inplace=True)
 
     return df
 
@@ -241,8 +249,8 @@ test_df = processTemperature(test_df)
 # %%
 # 湿度は10%刻みの値に変換
 def processHumidity(df):
-    df['humidity'] = (df['humidity'].str[:2].astype(int) / 10).round().astype(int)
-
+    df['humidity_index'] = (df['humidity'].str[:2].astype(int) // 10).astype(int)
+    df.drop(['humidity'], axis=1, inplace=True)
     return df
 
 train_df = processHumidity(train_df)
@@ -267,32 +275,21 @@ def processTv(df):
         local = [station for station in filtered if (station != 'ＮＨＫ総合') and ('ＢＳ' not in station)]
         df.at[index, 'isLocal'] = (len(local) > 0) * 1
 
+    df.drop(['tv'],axis=1, inplace=True)
     return df
 
 train_df = processTv(train_df)
 test_df = processTv(test_df)
 
-# %%
-# 2014年の無観客試合(浦和vs清水)を除外
-train_df = train_df.drop(train_df.index[422])
 
 # %%
 # 不要な列を削除
 def dropColumns(df, listClub):
     df.drop(
         [
-            'name',
-            'match',
-            'home',
-            'away',
-            'weather',
-            'match',
-            'tv',
-            'stadium',
-            'time',
             'home_score',
             'away_score',
-            'gameday'
+            'name'
         ], axis=1, inplace=True
     )
 
