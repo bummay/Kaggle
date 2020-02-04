@@ -27,70 +27,72 @@ def getCountry(df):
         df.at[index, 'manufacturer'] = spl[0]
 
     # メーカー名の表記ゆれを修正する
-    df.loc[((df['manufacturer'] == 'chevroelt') | (df['manufacturer'] == 'chevy')), 'manufacturer'] = 'chevrolet'
+    df.loc[(
+            (df['manufacturer'] == 'chevroelt') |
+            (df['manufacturer'] == 'chevy')
+            ), 'manufacturer'] = 'chevrolet'
     df.loc[(df['manufacturer'] == 'maxda'), 'manufacturer'] = 'mazda'
     df.loc[(df['manufacturer'] == 'toyouta'), 'manufacturer'] = 'toyota'
-    df.loc[((df['manufacturer'] == 'vw') | (df['manufacturer'] == 'vokswagen')), 'manufacturer'] = 'volkswagen'
+    df.loc[(
+            (df['manufacturer'] == 'vw') |
+            (df['manufacturer'] == 'vokswagen')
+            ), 'manufacturer'] = 'volkswagen'
     df.loc[(df['manufacturer'] == 'mercedes-benz'), 'manufacturer'] = 'mercedes'
 
     # メーカー名から国名を取得する。
     # 全部で7カ国あるが、件数が少ない「フランス、イタリア、スウェーデン、イギリス」はその他扱い
     # 日独米の3カ国+その他の4種類に分ける
-    df['USA'] = 1
-    df['JPN'] = 0
-    df['GER'] = 0
-    df.loc[((df['manufacturer'] == 'audi') | (df['manufacturer'] == 'bmw') | (df['manufacturer'] == 'opel') | (
-        df['manufacturer'] == 'mercedes') | (df['manufacturer'] == 'volkswagen')), 'GER'] = 1
-    df.loc[((df['manufacturer'] == 'datsun') | (df['manufacturer'] == 'honda') | (df['manufacturer'] == 'mazda') | (df['manufacturer'] == 'nissan') | (df['manufacturer'] == 'subaru') | (df['manufacturer'] == 'toyota')), 'JPN'] = 1
-
+    df['country'] = 'USA'
+    df.loc[(
+            (df['manufacturer'] == 'audi') |
+            (df['manufacturer'] == 'bmw') |
+            (df['manufacturer'] == 'opel') |
+            (df['manufacturer'] == 'mercedes') |
+            (df['manufacturer'] == 'volkswagen')
+            ), 'country'] = 'GER'
+    df.loc[(
+            (df['manufacturer'] == 'datsun') |
+            (df['manufacturer'] == 'honda') |
+            (df['manufacturer'] == 'mazda') |
+            (df['manufacturer'] == 'nissan') |
+            (df['manufacturer'] == 'subaru') |
+            (df['manufacturer'] == 'toyota'))
+            , 'country'] = 'JPN'
     df.loc[(
             (df['manufacturer'] == 'peugeot') |
             (df['manufacturer'] == 'renault') |
             (df['manufacturer'] == 'fiat') |
             (df['manufacturer'] == 'volvo') |
             (df['manufacturer'] == 'saab') |
-            (df['manufacturer'] == 'triumph') |
-            (df['JPN'] == 1) |
-            (df['GER'] == 1)
+            (df['manufacturer'] == 'triumph')
             )
-        , 'USA'] = 0
-
-    # df = df.drop(['car name'
-    # , 'manufacturer'
-    # ], axis=1)
-    # df = pd.get_dummies(df)
+        , 'country'] = 'EUR'
+    df.drop(['car name'], axis=1, inplace=True)
 
     return df
+
+def cnvToStr(df, cols):
+    for col in cols:
+        df[col] = df[col].astype(str)
+
+    return df
+
 
 def dropName(df):
-    df = df.drop(['manufacturer', 'car name'
-    ], axis=1)
+    df.drop([
+            'origin'
+            ], axis=1, inplace=True)
     return df
 
-def fillHp(df):
-    # dfSum = df['horsepower'].sum()
-    # dfCount = df['horsepower'].count()
-    # fhp = round((dfSum / dfCount), 0)
-    # df = df.fillna({'horsepower': fhp})
-    return df
-
-def regularization(df, colName):
-    # Xmax = df[colName].max()
-    # Xmin = df[colName].min()
-    # # 各列の値を「平均=0、標準偏差=1」に変換
-    # df[colName] = (df[colName] - df[colName].mean()) / df[colName].std()
-    # df[colName] = df[colName].fillna(0)
-    df[colName] = preprocessing.scale(df[colName])
-
-    return df
 
 def preprocess(df):
-    vNa = '?'
-    df = replaceNa(df, vNa)
+    colToStr = ['cylinders']
+
+    df = replaceNa(df, '?')
     df['horsepower'] = df['horsepower'].astype(float)
     df = getCountry(df)
-    # df = fillHp(df)
     df['horsepower'] = df.groupby(['manufacturer', 'cylinders'])['horsepower'].transform(lambda x:x.fillna(x.mean()))
+    df = cnvToStr(df, colToStr)
     df = dropName(df)
 
     return df
@@ -103,14 +105,6 @@ concat_df = concat_df.drop(['mpg'], axis=1)
 concat_df = preprocess(concat_df)
 
 
-# %%
-lstColName = ['cylinders', 'displacement', 'horsepower', 'weight',
-                'model year', 'USA', 'JPN', 'GER'
-                , 'acceleration', 'origin'
-                # , 'GER', 'FRA', 'GBR', 'ITA', 'SWE'
-                ]
-for colName in lstColName:
-    regularization(concat_df, colName)
 # %%
 tr_df = train_df[['id', 'mpg']]
 ts_df = test_df['id']
