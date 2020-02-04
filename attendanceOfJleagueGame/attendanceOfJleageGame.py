@@ -26,6 +26,9 @@ from pyproj import Geod
 with open('list_clubinfo.pkl', mode='rb') as f:
     list_clubinfo = pickle.load(f)
 
+with open('list_rival.pkl', mode='rb') as f:
+    list_rival = pickle.load(f)
+
 # %%
 # trainデータにaddデータをappend
 #
@@ -48,33 +51,38 @@ test_df = pd.read_csv(inputDir + 'test.csv')
 cond_df = pd.read_csv(inputDir + 'condition.csv')
 cond_add_df = pd.read_csv(inputDir + 'condition_add.csv')
 cond_df = cond_df.append(cond_add_df).sort_values('id')
-cond_df = cond_df.drop([
-                    'referee',
-                    'home_team', 'home_01', 'home_02', 'home_03', 'home_04', 'home_05',
-                    'home_06', 'home_07', 'home_08', 'home_09', 'home_10', 'home_11',
-                    'away_team', 'away_01', 'away_02', 'away_03', 'away_04', 'away_05',
-                    'away_06', 'away_07', 'away_08', 'away_09', 'away_10', 'away_11'
-                    ],axis=1)
+cond_df.drop([
+                'referee',
+                'home_team', 'home_01', 'home_02', 'home_03', 'home_04', 'home_05',
+                'home_06', 'home_07', 'home_08', 'home_09', 'home_10', 'home_11',
+                'away_team', 'away_01', 'away_02', 'away_03', 'away_04', 'away_05',
+                'away_06', 'away_07', 'away_08', 'away_09', 'away_10', 'away_11'
+            ],axis=1, inplace=True)
 del cond_add_df
 
-# stadium_dfは住所を削除
+# stadium_dfは以下のとおり加工
+# 住所を削除
+# 屋根のカバー状況を整数値に変換
+# 略称をダミー変数に変換
 stadium_df = pd.read_csv(inputDir + 'stadium.csv')
 stadium_df = stadium_df.rename(columns={'name':'stadium'})
-stadium_df = stadium_df.drop(['address'],axis=1)
+stadium_df.drop(['address'],axis=1, inplace=True)
 stadium_df['coveredwithroof'] = stadium_df['coveredwithroof'].astype(int)
+stadium_df['name'] = stadium_df['abbr']
+stadium_df = pd.get_dummies(stadium_df, columns=['abbr'], prefix='held')
 
 # train/testのそれぞれに、cond_dfとstadium_dfを結合
-def mergeDf(df):
+# 結合後、スタジアム名を略称に置き換えて略称列は削除
+def mergeStadiumDf(df):
     df = pd.merge(df, cond_df, on='id', how='left')
     df = pd.merge(df, stadium_df, on='stadium')
-
     return df
 
-train_df = mergeDf(train_df)
-test_df = mergeDf(test_df)
+train_df = mergeStadiumDf(train_df)
+test_df = mergeStadiumDf(test_df)
 
 # 来場者数とスタジアムの収容人数から収容率を取得
-train_df['yratio'] = ((train_df['y'] / train_df['capa']) ).round(2)
+train_df['yratio'] = (train_df['y'] / train_df['capa'])
 
 # %%
 # stageをコードに変換
@@ -103,7 +111,7 @@ def processGameday(df):
     df['nextIsHoliday'] = ((df['nextday'].map(
         jpholiday.is_holiday).astype(int) == 1) | (df['nextday'].dt.weekday > 4)).astype(int)
 
-    df = df.drop(['gamedate', 'nextday', 'weekday'], axis=1)
+    df.drop(['gamedate', 'nextday', 'weekday'], axis=1, inplace=True)
     return df
 
 train_df = processGameday(train_df)
@@ -191,7 +199,7 @@ def processHometownDistance(df, listClub):
     for index, row in df.iterrows():
         df.at[index, 'hometownDistance'] = int(get_distance(row['homeLon'], row['homeLat'], row['awayLon'], row['awayLat']) // 50)
 
-    df = df.drop(['homeLat', 'homeLon', 'awayLat', 'awayLon'], axis=1)
+    df.drop(['homeLat', 'homeLon', 'awayLat', 'awayLon'], axis=1, inplace=True)
     return df
 
 train_df = processHometownDistance(train_df, list_clubinfo)
@@ -271,8 +279,9 @@ train_df = train_df.drop(train_df.index[422])
 # %%
 # 不要な列を削除
 def dropColumns(df, listClub):
-    df = df.drop(
+    df.drop(
         [
+            'name',
             'match',
             'home',
             'away',
@@ -284,12 +293,12 @@ def dropColumns(df, listClub):
             'home_score',
             'away_score',
             'gameday'
-        ], axis = 1
+        ], axis=1, inplace=True
     )
 
     for item in listClub:
         team = 'a_' + item[0]
-        df = df.drop([team], axis=1)
+        df.drop([team], axis=1, inplace=True)
     return df
 
 train_df = dropColumns(train_df, list_clubinfo)
@@ -339,7 +348,7 @@ submission = pd.DataFrame({
 
 # %%
 submission['y'] = submission['capa'] * submission['yratio']
-submission = submission.drop(['capa', 'yratio'], axis=1)
+submission.drop(['capa', 'yratio'], axis=1, inplace=True)
 now = datetime.datetime.now()
 submission.to_csv('output/' + 'attendanceOfJleague_' +
                 now.strftime('%Y%m%d_%H%M%S') + '.csv', index=False, header=False)
