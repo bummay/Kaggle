@@ -70,7 +70,6 @@ del cond_add_df
 stadium_df = pd.read_csv(inputDir + 'stadium.csv')
 stadium_df = stadium_df.rename(columns={'name':'stadium'})
 stadium_df.drop(['address'],axis=1, inplace=True)
-stadium_df['coveredwithroof'] = stadium_df['coveredwithroof'].astype(int)
 stadium_df['name'] = stadium_df['abbr']
 stadium_df = pd.get_dummies(stadium_df, columns=['abbr'], prefix='held')
 
