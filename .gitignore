@@ -15,3 +15,6 @@ tutorial/input/historical_transactions_X.csv
 tutorial/input/user_table.csv
 attendanceOfJleagueGame/list_rival.pkl
 *.png
+ClickAd/input/sample_submit.csv
+ClickAd/input/test.tsv
+ClickAd/input/train.tsv
