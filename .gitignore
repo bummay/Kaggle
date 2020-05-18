@@ -18,3 +18,6 @@ attendanceOfJleagueGame/list_rival.pkl
 ClickAd/input/sample_submit.csv
 ClickAd/input/test.tsv
 ClickAd/input/train.tsv
+gender_submission.csv
+test.csv
+train.csv
