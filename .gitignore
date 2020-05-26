@@ -18,8 +18,4 @@ attendanceOfJleagueGame/list_rival.pkl
 ClickAd/input/sample_submit.csv
 ClickAd/input/test.tsv
 ClickAd/input/train.tsv
-<<<<<<< HEAD
-gender_submission.csv
-test.csv
-train.csv
-sandbox.py
+.drawio-chrome/

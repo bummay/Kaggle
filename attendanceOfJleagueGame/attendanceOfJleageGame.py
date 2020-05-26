@@ -70,8 +70,8 @@ del cond_add_df
 stadium_df = pd.read_csv(inputDir + 'stadium.csv')
 stadium_df = stadium_df.rename(columns={'name':'stadium'})
 stadium_df.drop(['address'],axis=1, inplace=True)
-stadium_df['name'] = stadium_df['abbr']
-stadium_df = pd.get_dummies(stadium_df, columns=['abbr'], prefix='held')
+# stadium_df['name'] = stadium_df['abbr']
+# stadium_df = pd.get_dummies(stadium_df, columns=['abbr'], prefix='held')
 
 # train/testのそれぞれに、cond_dfとstadium_dfを結合
 # 結合後、スタジアム名を略称に置き換えて略称列は削除
@@ -85,6 +85,14 @@ test_df = mergeStadiumDf(test_df)
 
 # 来場者数とスタジアムの収容人数から収容率を取得
 train_df['yratio'] = (train_df['y'] / train_df['capa'])
+
+# %%
+def renameKusatsu(df):
+    df.loc[df['home'] == 'ザスパ草津', 'home'] = 'ザスパクサツ群馬'
+    return df
+
+train_df = renameKusatsu(train_df)
+test_df = renameKusatsu(test_df)
 
 # %%
 # stageをコードに変換
@@ -143,23 +151,40 @@ test_df = processTime(test_df)
 # %%
 # チーム名のダミー変数を作成。
 def processTeam(df):
+    # チーム×ホームスタジアムのListを作成
+    tmp_homestadium = df['home'] + '_' + df['abbr']
+    tmp_homestadium.drop_duplicates(inplace=True)
+    tmp_homestadium = tmp_homestadium.values.tolist()
+
     for item in list_clubinfo:
-        h_code = 'h_' + item[0]
+        # ホーム/アウェイチームのコードをいったん列[home][away]にセットする。
+        df.loc[(df['home'] == item[1]), 'home'] = item[0]
+        df.loc[(df['away'] == item[1]), 'away'] = item[0]
+
+        # アウェイチーム列の作成
         a_code = 'a_' + item[0]
-        df[h_code] = 0
         df[a_code] = 0
 
-        for team in item[1]:
-            df.loc[(df['home'] == team), h_code] = 1
-            df.loc[(df['home'] == team), 'home'] = item[0]
-            df.loc[(df['away'] == team), a_code] = 1
-            df.loc[(df['away'] == team), 'away'] = item[0]
+        # ホームチーム×ホームスタジアムの列を作成
+        for stadium in item[2]:
+            h_code = item[0] + '_' + stadium_df[stadium_df['stadium'] == stadium]['abbr'].values[0]
+            df[h_code] = 0
 
+
+
+        # ここから実際の列に値(1)をセットしていく。
+        # アウェイチーム
+        for team in item[0]:
+            df.loc[(df['away'] == team), a_code] = 1
+
+
+
+        # df.loc[(df['h_' + team] == 1), h_code] = Lat
     return df
 
 train_df = processTeam(train_df)
 test_df = processTeam(test_df)
-
+# %%
 # ホームタウン間の距離を計測する。
 # これは2点間の距離を計測する関数
 def get_distance(startLon, startLat, toLon, toLat):
