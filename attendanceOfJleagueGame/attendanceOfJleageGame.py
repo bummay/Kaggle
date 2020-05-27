@@ -36,16 +36,18 @@ with open('list_rival.pkl', mode='rb') as f:
 #
 inputDir = 'input/'
 
-train_df = pd.read_csv(inputDir + 'train.csv')
-train_add_df = pd.read_csv(inputDir + 'train_add.csv')
-train_df = train_df.append(train_add_df)
-train_df = train_df.sort_values('id')
-del train_add_df
+train = pd.read_csv(inputDir + 'train.csv')
+train_add = pd.read_csv(inputDir + 'train_add.csv')
+train = train.append(train_add)
+train = train.sort_values('id')
+del train_add
 
-test_df = pd.read_csv(inputDir + 'test.csv')
+test = pd.read_csv(inputDir + 'test.csv')
 # %%
 # 2014年の無観客試合(浦和vs清水)を除外
+train_df = train
 train_df = train_df[train_df['y'] > 0]
+test_df = test
 
 # cond_dfは以下の項目のみ残す。
 #   ホームチームスコア
@@ -93,6 +95,7 @@ train_df['yratio'] = (train_df['y'] / train_df['capa'])
 # %%
 def renameKusatsu(df):
     df.loc[df['home'] == 'ザスパ草津', 'home'] = 'ザスパクサツ群馬'
+    df.loc[df['away'] == 'ザスパ草津', 'away'] = 'ザスパクサツ群馬'
     return df
 
 train_df = renameKusatsu(train_df)
@@ -376,12 +379,6 @@ pred = model.predict(dtest)
 
 
 
-# %%
-importances = pd.Series(reg.feature_importances_, index=X.columns)
-importances = importances.sort_values()
-importances.plot(kind="barh", figsize=(9,45))
-# plt.title("imporance in the xgboost Model")
-# plt.show()
 # %%
 submission = pd.DataFrame({
     "id": test_df['id'],
