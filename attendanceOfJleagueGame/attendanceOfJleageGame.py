@@ -318,6 +318,13 @@ test_df = processTv(test_df)
 
 # %%
 # 不要な列を削除
+def deleteColumns(df):
+    df.drop(['home_score', 'away_score'], axis=1, inplace=True)
+    # df.drop(['isDerby'], axis=1, inplace=True)
+    return df
+
+train_df = deleteColumns(train_df)
+test_df = deleteColumns(test_df)
 
 # %%
 # クラブによってはキャパシティの異なる複数のスタジアムで試合をすることもある。
