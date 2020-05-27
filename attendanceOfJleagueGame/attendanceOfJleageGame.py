@@ -12,14 +12,15 @@ import pandas.tseries.offsets as offsets
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.preprocessing import LabelEncoder
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import fbeta_score
+from sklearn.model_selection import KFold
+# from sklearn.preprocessing import LabelEncoder
+# from sklearn.ensemble import RandomForestClassifier
+# from sklearn.metrics import fbeta_score
 from sklearn.metrics import mean_squared_error
-from sklearn.metrics.scorer import make_scorer
+# from sklearn.metrics import make_scorer
 from sklearn.model_selection import GridSearchCV
-from sklearn.model_selection import train_test_split
-from pyproj import Geod
+# from sklearn.model_selection import train_test_split
+# from pyproj import Geod
 
 
 # %%
@@ -42,8 +43,9 @@ train_df = train_df.sort_values('id')
 del train_add_df
 
 test_df = pd.read_csv(inputDir + 'test.csv')
+# %%
 # 2014年の無観客試合(浦和vs清水)を除外
-train_df = train_df.drop(train_df.index[422])
+train_df = train_df[train_df['y'] > 0]
 
 # cond_dfは以下の項目のみ残す。
 #   ホームチームスコア
@@ -78,6 +80,8 @@ stadium_df.drop(['address'],axis=1, inplace=True)
 def mergeStadiumDf(df):
     df = pd.merge(df, cond_df, on='id', how='left')
     df = pd.merge(df, stadium_df, on='stadium')
+    df.drop(['stadium'], axis=1, inplace=True)
+    df = df.rename(columns={'abbr':'stadium'})
     return df
 
 train_df = mergeStadiumDf(train_df)
@@ -151,72 +155,76 @@ test_df = processTime(test_df)
 # %%
 # チーム名のダミー変数を作成。
 def processTeam(df):
-    # チーム×ホームスタジアムのListを作成
-    tmp_homestadium = df['home'] + '_' + df['abbr']
-    tmp_homestadium.drop_duplicates(inplace=True)
-    tmp_homestadium = tmp_homestadium.values.tolist()
+    lst_homestadium = []
 
     for item in list_clubinfo:
-        # ホーム/アウェイチームのコードをいったん列[home][away]にセットする。
-        df.loc[(df['home'] == item[1]), 'home'] = item[0]
-        df.loc[(df['away'] == item[1]), 'away'] = item[0]
+        team = item[0]
+        # ホーム/アウェイチームのコードを列[home][away]にセットする。
+        df.loc[(df['home'] == item[1]), 'home'] = team
+        df.loc[(df['away'] == item[1]), 'away'] = team
 
-        # アウェイチーム列の作成
-        a_code = 'a_' + item[0]
+        # アウェイチーム列の作成を作成し、フラグを立てる。
+        a_code = 'a_' + team
         df[a_code] = 0
+        df.loc[(df['away'] == team), a_code] = 1
 
         # ホームチーム×ホームスタジアムの列を作成
         for stadium in item[2]:
-            h_code = item[0] + '_' + stadium_df[stadium_df['stadium'] == stadium]['abbr'].values[0]
-            df[h_code] = 0
+            lst_homestadium.append([team, stadium])
 
+    df['tmpflg'] = 0
+    for item in lst_homestadium:
+        df[item[0] + '_' + item[1]] = 0
+        df.loc[(df['home'] == item[0]) & (df['stadium'] == item[1]), item[0] + '_' + item[1]] = 1
+        df.loc[(df['home'] == item[0]) & (df['stadium'] == item[1]), 'tmpflg'] = 1
 
+    lst_heldAtOtherStadium = df[df['tmpflg'] == 0]['home'].to_list()
+    for team in lst_heldAtOtherStadium:
+        df[team + '_other'] = 0
+        df.loc[(df['home'] == team) & (df['tmpflg'] == 0), team + '_other'] = 1
 
-        # ここから実際の列に値(1)をセットしていく。
-        # アウェイチーム
-        for team in item[0]:
-            df.loc[(df['away'] == team), a_code] = 1
+    df.drop(['tmpflg'], axis=1, inplace=True)
 
-
-
-        # df.loc[(df['h_' + team] == 1), h_code] = Lat
     return df
 
-train_df = processTeam(train_df)
-test_df = processTeam(test_df)
+cc_df = pd.concat([train_df, test_df])
+cc_df = processTeam(cc_df)
+
+train_df = cc_df[cc_df['y'] > 0]
+test_df = cc_df[cc_df['y'].isna()]
 # %%
 # ホームタウン間の距離を計測する。
 # これは2点間の距離を計測する関数
-def get_distance(startLon, startLat, toLon, toLat):
-    q = Geod(ellps='WGS84')
-    fa, ba, d = q.inv(startLon, startLat, toLon, toLat)
+# def get_distance(startLon, startLat, toLon, toLat):
+#     q = Geod(ellps='WGS84')
+#     fa, ba, d = q.inv(startLon, startLat, toLon, toLat)
 
-    return round(d * 0.001, 1)
+#     return round(d * 0.001, 1)
 
-# ホーム/アウェイの両チームのホームタウン座標間の距離を測定して100km刻みで区分け
-def processHometownDistance(df, listClub):
-    df['homeLon'] = 0.000000
-    df['homeLat'] = 0.000000
-    df['awayLon'] = 0.000000
-    df['awayLat'] = 0.000000
-    for item in listClub:
-        team = item[0]
-        Lat = item[4]
-        Lon = item[5]
-        df.loc[(df['h_' + team] == 1), 'homeLat'] = Lat
-        df.loc[(df['h_' + team] == 1), 'homeLon'] = Lon
-        df.loc[(df['a_' + team] == 1), 'awayLat'] = Lat
-        df.loc[(df['a_' + team] == 1), 'awayLon'] = Lon
+# # ホーム/アウェイの両チームのホームタウン座標間の距離を測定して100km刻みで区分け
+# def processHometownDistance(df, listClub):
+#     df['homeLon'] = 0.000000
+#     df['homeLat'] = 0.000000
+#     df['awayLon'] = 0.000000
+#     df['awayLat'] = 0.000000
+#     for item in listClub:
+#         team = item[0]
+#         Lat = item[4]
+#         Lon = item[5]
+#         df.loc[(df['h_' + team] == 1), 'homeLat'] = Lat
+#         df.loc[(df['h_' + team] == 1), 'homeLon'] = Lon
+#         df.loc[(df['a_' + team] == 1), 'awayLat'] = Lat
+#         df.loc[(df['a_' + team] == 1), 'awayLon'] = Lon
 
-    for index, row in df.iterrows():
-        df.at[index, 'hometownDistance'] = int(get_distance(row['homeLon'], row['homeLat'], row['awayLon'], row['awayLat']) // 100)
+#     for index, row in df.iterrows():
+#         df.at[index, 'hometownDistance'] = int(get_distance(row['homeLon'], row['homeLat'], row['awayLon'], row['awayLat']) // 100)
 
-    df.drop(['homeLat', 'homeLon', 'awayLat', 'awayLon'], axis=1, inplace=True)
+#     df.drop(['homeLat', 'homeLon', 'awayLat', 'awayLon'], axis=1, inplace=True)
 
-    return df
+#     return df
 
-train_df = processHometownDistance(train_df, list_clubinfo)
-test_df = processHometownDistance(test_df, list_clubinfo)
+# train_df = processHometownDistance(train_df, list_clubinfo)
+# test_df = processHometownDistance(test_df, list_clubinfo)
 
 # %%
 # スタジアム名はもういらないので削除
@@ -307,46 +315,38 @@ test_df = processTv(test_df)
 
 
 # %%
-# 不要な列を削除
-def dropColumns(df, listClub):
-    df.drop(
-        [
-            'home_score',
-            'away_score',
-            'name'
-        ], axis=1, inplace=True
-    )
-
-    for item in listClub:
-        team = 'a_' + item[0]
-        df.drop([team], axis=1, inplace=True)
-    return df
-
-train_df = dropColumns(train_df, list_clubinfo)
-test_df = dropColumns(test_df, list_clubinfo)
-
-# %%
 # クラブによってはキャパシティの異なる複数のスタジアムで試合をすることもある。
 # そのため、収容率(yratio)を目的変数に変更する。
 X = train_df.drop(['id', 'y', 'yratio'],axis=1)
 y = train_df['yratio']
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=1)
 
+X_test = test_df.drop(['id'],axis=1)
+# %%
+kf = KFold(n_splits=4, shuffle=True, random_state=71)
 reg = xgb.XGBRegressor()
+scores = []
+for tr_idx, va_idx in kf.split(X):
+    tr_x, va_x = X.iloc[tr_idx], X.iloc[va_idx]
+    tr_y, va_y = y.iloc[tr_idx], y.iloc[va_idx]
+    reg_cv = GridSearchCV(reg, {'eval_metric': ['rmse'], 'max_depth': [8], 'n_estimators': [100]}, verbose=1)
+    reg_cv.fit(tr_x, tr_y)
+    va_pred = reg_cv.predict(va_x)
 
-# reg_cv = GridSearchCV(reg, {'eval_metric': ['rmse'], 'max_depth': [2, 4, 6], 'n_estimators': [100, 150, 200]}, verbose=1)
-reg_cv = GridSearchCV(reg, {'eval_metric': ['rmse'], 'max_depth': [8], 'n_estimators': [100]}, verbose=1)
-reg_cv.fit(X_train, y_train)
+    score = np.sqrt(mean_squared_error(va_y, va_pred))
+    scores.append(score)
 
-reg = xgb.XGBRFRegressor(**reg_cv.best_params_)
-reg.fit(X_train, y_train)
+print(f'rmse:{np.mean(scores):4f}')
 
-pred_train = reg.predict(X_train)
+# %%
+
+reg.fit(X, y)
+
+# pred_train = reg.predict(X_train)
 pred_test = reg.predict(X_test)
 
 
 # %%
-mean_squared_error(y_train, pred_train)
+# mean_squared_error(y_train, pred_train)
 # %%
 mean_squared_error(y_test, pred_test)
 
