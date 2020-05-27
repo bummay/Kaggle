@@ -1,5 +1,6 @@
 # %%
 import pandas as pd
+import numpy as np
 import xgboost as xgb
 
 import pickle
@@ -9,18 +10,17 @@ import datetime
 import jpholiday
 import pandas.tseries.offsets as offsets
 
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import KFold
+from sklearn.metrics import mean_squared_error
+from pyproj import Geod
+from sklearn.model_selection import train_test_split
+
 # from sklearn.preprocessing import LabelEncoder
 # from sklearn.ensemble import RandomForestClassifier
 # from sklearn.metrics import fbeta_score
-from sklearn.metrics import mean_squared_error
 # from sklearn.metrics import make_scorer
-from sklearn.model_selection import GridSearchCV
-# from sklearn.model_selection import train_test_split
-# from pyproj import Geod
 
 
 # %%
@@ -195,36 +195,36 @@ test_df = cc_df[cc_df['y'].isna()]
 # %%
 # ホームタウン間の距離を計測する。
 # これは2点間の距離を計測する関数
-# def get_distance(startLon, startLat, toLon, toLat):
-#     q = Geod(ellps='WGS84')
-#     fa, ba, d = q.inv(startLon, startLat, toLon, toLat)
+def get_distance(startLon, startLat, toLon, toLat):
+    q = Geod(ellps='WGS84')
+    fa, ba, d = q.inv(startLon, startLat, toLon, toLat)
 
-#     return round(d * 0.001, 1)
+    return round(d * 0.001, 1)
 
 # # ホーム/アウェイの両チームのホームタウン座標間の距離を測定して100km刻みで区分け
-# def processHometownDistance(df, listClub):
-#     df['homeLon'] = 0.000000
-#     df['homeLat'] = 0.000000
-#     df['awayLon'] = 0.000000
-#     df['awayLat'] = 0.000000
-#     for item in listClub:
-#         team = item[0]
-#         Lat = item[4]
-#         Lon = item[5]
-#         df.loc[(df['h_' + team] == 1), 'homeLat'] = Lat
-#         df.loc[(df['h_' + team] == 1), 'homeLon'] = Lon
-#         df.loc[(df['a_' + team] == 1), 'awayLat'] = Lat
-#         df.loc[(df['a_' + team] == 1), 'awayLon'] = Lon
+def processHometownDistance(df, listClub):
+    df['homeLon'] = 0.000000
+    df['homeLat'] = 0.000000
+    df['awayLon'] = 0.000000
+    df['awayLat'] = 0.000000
+    for item in listClub:
+        team = item[0]
+        Lat = item[3]
+        Lon = item[4]
+        df.loc[(df['home'] == team), 'homeLat'] = Lat
+        df.loc[(df['home'] == team), 'homeLon'] = Lon
+        df.loc[(df['away'] == team), 'awayLat'] = Lat
+        df.loc[(df['away'] == team), 'awayLon'] = Lon
 
-#     for index, row in df.iterrows():
-#         df.at[index, 'hometownDistance'] = int(get_distance(row['homeLon'], row['homeLat'], row['awayLon'], row['awayLat']) // 100)
+    for index, row in df.iterrows():
+        df.at[index, 'hometownDistance'] = int(get_distance(row['homeLon'], row['homeLat'], row['awayLon'], row['awayLat']) // 100)
 
-#     df.drop(['homeLat', 'homeLon', 'awayLat', 'awayLon'], axis=1, inplace=True)
+    df.drop(['homeLat', 'homeLon', 'awayLat', 'awayLon'], axis=1, inplace=True)
 
-#     return df
+    return df
 
-# train_df = processHometownDistance(train_df, list_clubinfo)
-# test_df = processHometownDistance(test_df, list_clubinfo)
+train_df = processHometownDistance(train_df, list_clubinfo)
+test_df = processHometownDistance(test_df, list_clubinfo)
 
 # %%
 # スタジアム名はもういらないので削除
@@ -313,6 +313,8 @@ def processTv(df):
 train_df = processTv(train_df)
 test_df = processTv(test_df)
 
+# %%
+# 不要な列を削除
 
 # %%
 # クラブによってはキャパシティの異なる複数のスタジアムで試合をすることもある。
@@ -320,35 +322,57 @@ test_df = processTv(test_df)
 X = train_df.drop(['id', 'y', 'yratio'],axis=1)
 y = train_df['yratio']
 
-X_test = test_df.drop(['id'],axis=1)
-# %%
+X_test = test_df.drop(['id', 'y', 'yratio'],axis=1)
+
 kf = KFold(n_splits=4, shuffle=True, random_state=71)
-reg = xgb.XGBRegressor()
-scores = []
-for tr_idx, va_idx in kf.split(X):
-    tr_x, va_x = X.iloc[tr_idx], X.iloc[va_idx]
-    tr_y, va_y = y.iloc[tr_idx], y.iloc[va_idx]
-    reg_cv = GridSearchCV(reg, {'eval_metric': ['rmse'], 'max_depth': [8], 'n_estimators': [100]}, verbose=1)
-    reg_cv.fit(tr_x, tr_y)
-    va_pred = reg_cv.predict(va_x)
+tr_idx, va_idx = list(kf.split(X))[0]
 
-    score = np.sqrt(mean_squared_error(va_y, va_pred))
-    scores.append(score)
+tr_x, va_x = X.iloc[tr_idx], X.iloc[va_idx]
+tr_y, va_y = y.iloc[tr_idx], y.iloc[va_idx]
 
-print(f'rmse:{np.mean(scores):4f}')
+dtrain = xgb.DMatrix(tr_x, label=tr_y)
+dvalid = xgb.DMatrix(va_x, label=va_y)
+dtest = xgb.DMatrix(X_test)
+
+params = {'max_depth':5, 'random_state':71}
+num_round = 50
+
+watchlist = [(dtrain, 'train'), (dvalid, 'eval')]
+model = xgb.train(params, dtrain, num_round, evals=watchlist)
+
+va_pred = model.predict(dvalid)
+score = np.sqrt(mean_squared_error(va_y, va_pred))
+print(f'rmse: {score:4f}')
+
+pred = model.predict(dtest)
 
 # %%
+# reg = xgb.XGBRegressor()
+# scores = []
+# for tr_idx, va_idx in kf.split(X):
+#     tr_x, va_x = X.iloc[tr_idx], X.iloc[va_idx]
+#     tr_y, va_y = y.iloc[tr_idx], y.iloc[va_idx]
+#     reg_cv = GridSearchCV(reg, {'eval_metric': ['rmse'], 'max_depth': [8], 'n_estimators': [100]}, verbose=1)
+#     reg_cv.fit(tr_x, tr_y)
+#     va_pred = reg_cv.predict(va_x)
 
-reg.fit(X, y)
+#     score = np.sqrt(mean_squared_error(va_y, va_pred))
+#     scores.append(score)
 
-# pred_train = reg.predict(X_train)
-pred_test = reg.predict(X_test)
+# print(f'rmse:{np.mean(scores):4f}')
+
+# # %%
+
+# reg.fit(X, y)
+
+# # pred_train = reg.predict(X_train)
+# pred_test = reg.predict(X_test)
 
 
-# %%
-# mean_squared_error(y_train, pred_train)
-# %%
-mean_squared_error(y_test, pred_test)
+# # %%
+# # mean_squared_error(y_train, pred_train)
+# # %%
+# mean_squared_error(y_test, pred_test)
 
 
 
@@ -359,12 +383,10 @@ importances.plot(kind="barh", figsize=(9,45))
 # plt.title("imporance in the xgboost Model")
 # plt.show()
 # %%
-pred_X = test_df.drop(['id'], axis=1)
-pred_y = reg.predict(pred_X)
 submission = pd.DataFrame({
     "id": test_df['id'],
     "capa": test_df['capa'],
-    'yratio': pred_y
+    'yratio': pred
 })
 
 # %%
