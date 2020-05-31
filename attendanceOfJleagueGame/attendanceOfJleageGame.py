@@ -38,7 +38,9 @@ inputDir = 'input/'
 
 train = pd.read_csv(inputDir + 'train.csv')
 train_add = pd.read_csv(inputDir + 'train_add.csv')
+add_2014 = pd.read_csv(inputDir + '2014_add.csv')
 train = train.append(train_add)
+train = train.append(add_2014)
 train = train.sort_values('id')
 del train_add
 
