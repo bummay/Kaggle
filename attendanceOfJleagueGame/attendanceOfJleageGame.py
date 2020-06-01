@@ -28,9 +28,6 @@ from sklearn.model_selection import train_test_split
 with open('list_clubinfo.pkl', mode='rb') as f:
     list_clubinfo = pickle.load(f)
 
-with open('list_rival.pkl', mode='rb') as f:
-    list_rival = pickle.load(f)
-
 # %%
 # trainデータにaddデータをappend
 #
@@ -242,24 +239,6 @@ train_df = processStadium(train_df)
 test_df = processStadium(test_df)
 
 # %%
-# いわゆる「ダービーマッチ」の対戦相手かを判断する
-# ここでチーム名(ホーム/アウェイ)はいらなくなるので削除
-def processRival(df, list_rival):
-    df['isDerby'] = 0
-    for index, row in df.iterrows():
-        home = row['home']
-        away = row['away']
-        for item in list_rival:
-            if (home in item) & (away in item):
-                df.at[index, 'isDerby'] = int(1)
-
-    df.drop(['home', 'away'], axis=1, inplace=True)
-    return df
-
-train_df = processRival(train_df, list_rival)
-test_df = processRival(test_df, list_rival)
-
-# %%
 # 天気から「雨/雪が含まれているか」を取得
 # weatherを削除
 def processWeather(df):
@@ -321,8 +300,7 @@ test_df = processTv(test_df)
 # %%
 # 不要な列を削除
 def deleteColumns(df):
-    df.drop(['home_score', 'away_score'], axis=1, inplace=True)
-    # df.drop(['isDerby'], axis=1, inplace=True)
+    df.drop(['home', 'away', 'home_score', 'away_score'], axis=1, inplace=True)
     return df
 
 train_df = deleteColumns(train_df)
