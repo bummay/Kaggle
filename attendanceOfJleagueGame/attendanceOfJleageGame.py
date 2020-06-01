@@ -323,7 +323,7 @@ test_df = processTv(test_df)
 # %%
 # 不要な列を削除
 def deleteColumns(df):
-    df.drop(['home', 'away', 'home_score', 'away_score'], axis=1, inplace=True)
+    df.drop(['home', 'away', 'home_score', 'away_score', 'isOpening'], axis=1, inplace=True)
     return df
 
 train_df = deleteColumns(train_df)
