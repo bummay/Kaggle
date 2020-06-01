@@ -35,17 +35,19 @@ inputDir = 'input/'
 
 train = pd.read_csv(inputDir + 'train.csv')
 train_add = pd.read_csv(inputDir + 'train_add.csv')
-add_2014 = pd.read_csv(inputDir + '2014_add.csv')
 train = train.append(train_add)
+train['isAdd2014'] = 0
+
+add_2014 = pd.read_csv(inputDir + '2014_add.csv')
+add_2014['isAdd2014'] = 1
+
 train = train.append(add_2014)
 train = train.sort_values('id')
 del train_add
 
 test = pd.read_csv(inputDir + 'test.csv')
 # %%
-# 2014年の無観客試合(浦和vs清水)を除外
 train_df = train
-train_df = train_df[train_df['y'] > 0]
 test_df = test
 
 # cond_dfは以下の項目のみ残す。
@@ -73,8 +75,6 @@ del cond_add_df
 stadium_df = pd.read_csv(inputDir + 'stadium.csv')
 stadium_df = stadium_df.rename(columns={'name':'stadium'})
 stadium_df.drop(['address'],axis=1, inplace=True)
-# stadium_df['name'] = stadium_df['abbr']
-# stadium_df = pd.get_dummies(stadium_df, columns=['abbr'], prefix='held')
 
 # train/testのそれぞれに、cond_dfとstadium_dfを結合
 # 結合後、スタジアム名を略称に置き換えて略称列は削除
@@ -91,11 +91,14 @@ test_df = mergeStadiumDf(test_df)
 # 来場者数とスタジアムの収容人数から収容率を取得
 train_df['yratio'] = (train_df['y'] / train_df['capa'])
 
+
 # %%
 def renameKusatsu(df):
     df.loc[df['home'] == 'ザスパ草津', 'home'] = 'ザスパクサツ群馬'
     df.loc[df['away'] == 'ザスパ草津', 'away'] = 'ザスパクサツ群馬'
     return df
+
+# df = renameKusatsu(df)
 
 train_df = renameKusatsu(train_df)
 test_df = renameKusatsu(test_df)
@@ -108,18 +111,38 @@ def processStage(df):
 
     return df
 
+# df = processStage(df)
+
 train_df = processStage(train_df)
 test_df = processStage(test_df)
 
 # %%
-# 節数→とりあえず削除
+# 節数 → ホーム開幕/最終戦のフラグを取得した後に削除
 def processMatch(df):
-    df.drop(['match'], axis=1, inplace=True)
+    tmp_opening = df.groupby(['year', 'home']).min().reset_index()[['year', 'home', 'gameday']]
+    tmp_opening['isOpening'] = 1
+
+    tmp_final = df.groupby(['year', 'home']).max().reset_index()[['year', 'home', 'gameday']]
+    tmp_final['isFinal'] = 1
+
+    df = pd.merge(df, tmp_opening, how='left', on=['year', 'home', 'gameday'])
+    df = pd.merge(df, tmp_final, how='left', on=['year', 'home', 'gameday'])
+    df.fillna({'isOpening': 0, 'isFinal':0},inplace=True)
+    df = df.astype({'isOpening':'int64', 'isFinal':'int64'})
+
+    df = df[df['isAdd2014'] != 1]
+    df.drop(['match', 'isAdd2014'], axis=1, inplace=True)
     return df
 
-train_df = processMatch(train_df)
-test_df = processMatch(test_df)
+cc_df = pd.concat([train_df, test_df])
+cc_df = processMatch(cc_df)
+# %%
+train_df = cc_df[cc_df['y'] > 0]
+test_df = cc_df[cc_df['y'].isna()]
 
+# %%
+# 2014年の無観客試合(浦和vs清水)を除外
+train_df = train_df[train_df['y'] != 0]
 
 # %%
 # gamedayから「月」と「当日が休日か」と「翌日が休日か」を取得
