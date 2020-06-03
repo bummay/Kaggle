@@ -337,7 +337,7 @@ test_df = processTv(test_df)
 # %%
 # 不要な列を削除
 def deleteColumns(df):
-    df.drop(['home', 'away', 'home_score', 'away_score', 'isOpening', 'year', 'week'], axis=1, inplace=True)
+    df.drop(['home', 'away', 'home_score', 'away_score', 'isOpening','isFinal', 'year', 'week'], axis=1, inplace=True)
     return df
 
 train_df = deleteColumns(train_df)
@@ -373,35 +373,6 @@ score = np.sqrt(mean_squared_error(va_y, va_pred))
 print(f'rmse: {score:4f}')
 
 pred = model.predict(dtest)
-
-# %%
-# reg = xgb.XGBRegressor()
-# scores = []
-# for tr_idx, va_idx in kf.split(X):
-#     tr_x, va_x = X.iloc[tr_idx], X.iloc[va_idx]
-#     tr_y, va_y = y.iloc[tr_idx], y.iloc[va_idx]
-#     reg_cv = GridSearchCV(reg, {'eval_metric': ['rmse'], 'max_depth': [8], 'n_estimators': [100]}, verbose=1)
-#     reg_cv.fit(tr_x, tr_y)
-#     va_pred = reg_cv.predict(va_x)
-
-#     score = np.sqrt(mean_squared_error(va_y, va_pred))
-#     scores.append(score)
-
-# print(f'rmse:{np.mean(scores):4f}')
-
-# # %%
-
-# reg.fit(X, y)
-
-# # pred_train = reg.predict(X_train)
-# pred_test = reg.predict(X_test)
-
-
-# # %%
-# # mean_squared_error(y_train, pred_train)
-# # %%
-# mean_squared_error(y_test, pred_test)
-
 
 
 # %%
