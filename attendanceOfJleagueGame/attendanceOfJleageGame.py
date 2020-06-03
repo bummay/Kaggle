@@ -6,7 +6,7 @@ import xgboost as xgb
 import pickle
 
 # 日付の処理で使う
-import datetime
+from datetime import datetime
 import jpholiday
 import pandas.tseries.offsets as offsets
 
@@ -49,6 +49,10 @@ test = pd.read_csv(inputDir + 'test.csv')
 # %%
 train_df = train
 test_df = test
+
+stats = pd.read_csv(inputDir + 'standings.csv')
+stats_home = stats.rename(columns={'team': 'h_team', 'maybeChampion': 'h_maybeChampion', 'mayPromote': 'h_mayPromote', 'mayDemote': 'h_mayDemote'})[['year', 'stage', 'h_team', 'week', 'h_maybeChampion', 'h_mayPromote', 'h_mayDemote']]
+stats_away = stats.rename(columns={'team': 'a_team', 'maybeChampion': 'a_maybeChampion', 'mayPromote': 'a_mayPromote', 'mayDemote': 'a_mayDemote'})[['year', 'stage', 'a_team', 'week', 'a_maybeChampion', 'a_mayPromote', 'a_mayDemote']]
 
 # cond_dfは以下の項目のみ残す。
 #   ホームチームスコア
@@ -160,7 +164,13 @@ def processGameday(df):
     df['nextIsHoliday'] = ((df['nextday'].map(
         jpholiday.is_holiday).astype(int) == 1) | (df['nextday'].dt.weekday > 4)).astype(int)
 
-    df.drop(['gameday','gamedate', 'nextday', 'weekday', 'year'], axis=1, inplace=True)
+    # statsと紐付けるために週番号を取得
+    # 元日が週番号1で始まらない年があるので、対象となる年の週番号は+1する。
+    df['week'] = df['gamedate'].dt.week
+    df['tmp'] = pd.to_datetime((df['year'].astype(str) + '/01/01'))
+    df.loc[df['tmp'].dt.week > 1, 'week'] += 1
+
+    df.drop(['gameday','gamedate', 'nextday', 'weekday', 'tmp'], axis=1, inplace=True)
     return df
 
 train_df = processGameday(train_df)
@@ -214,6 +224,10 @@ def processTeam(df):
 
 cc_df = pd.concat([train_df, test_df])
 cc_df = processTeam(cc_df)
+
+cc_df = pd.merge(cc_df, stats_home, how='left', left_on=['year', 'stage', 'home', 'week'] , right_on=['year', 'stage', 'h_team', 'week'])
+cc_df = pd.merge(cc_df, stats_away, how='left', left_on=['year', 'stage', 'away', 'week'] , right_on=['year', 'stage', 'a_team', 'week'])
+cc_df.drop(['h_team', 'a_team'], axis=1, inplace=True)
 
 train_df = cc_df[cc_df['y'] > 0]
 test_df = cc_df[cc_df['y'].isna()]
@@ -323,7 +337,7 @@ test_df = processTv(test_df)
 # %%
 # 不要な列を削除
 def deleteColumns(df):
-    df.drop(['home', 'away', 'home_score', 'away_score', 'isOpening'], axis=1, inplace=True)
+    df.drop(['home', 'away', 'home_score', 'away_score', 'isOpening', 'year', 'week'], axis=1, inplace=True)
     return df
 
 train_df = deleteColumns(train_df)
@@ -331,6 +345,7 @@ test_df = deleteColumns(test_df)
 
 # %%
 # クラブによってはキャパシティの異なる複数のスタジアムで試合をすることもある。
+# また、キャパシティもスタジアムによって大きく変わる(3,560~72,327)
 # そのため、収容率(yratio)を目的変数に変更する。
 X = train_df.drop(['id', 'y', 'yratio'],axis=1)
 y = train_df['yratio']
@@ -399,7 +414,7 @@ submission = pd.DataFrame({
 # %%
 submission['y'] = submission['capa'] * submission['yratio']
 submission.drop(['capa', 'yratio'], axis=1, inplace=True)
-now = datetime.datetime.now()
+now = datetime.now()
 submission.to_csv('output/' + 'attendanceOfJleague_' +
                 now.strftime('%Y%m%d_%H%M%S') + '.csv', index=False, header=False)
 

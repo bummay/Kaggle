@@ -132,7 +132,7 @@ for year in list_year:
                     'year': year,
                     'stage': stg,
                     'team': team,
-                    'week': week,
+                    'week': week + 1,
                     'rank': 0,
                     'rank_value': (sum_point + 1) * 10000 + goal_difference * 100 + sum_for,
                     'games': gameCnt,
