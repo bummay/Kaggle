@@ -5,14 +5,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import datetime
 
-from sklearn.preprocessing import LabelEncoder
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import fbeta_score
-from sklearn.metrics.scorer import make_scorer
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import KFold
 
 # %%
-inputDir = 'evaluateVehicle/input/'
+inputDir = 'input/'
 train_df = pd.read_table(inputDir + 'train.tsv')
 test_df = pd.read_table(inputDir + 'test.tsv')
 
@@ -87,122 +83,69 @@ sns.countplot(x='safety', hue='class', data=train_df,
                 hue_order=['unacc', 'acc', 'good', 'vgood'])
 
 # %%
-# ===== classをコード化
-def processClass(df):
-    df['class'] = df['class'].map(
-        {'unacc': 0, 'acc': 1, 'good': 2, 'vgood': 3}).astype(int)
-    return df
+# one-hot encodingする。
+cc_df = pd.concat([train_df, test_df])
+cc_df = pd.get_dummies(cc_df, columns=['buying', 'maint', 'doors', 'persons', 'lug_boot', 'safety'])
 
-train_df = processClass(train_df)
+train_df = cc_df[~cc_df['class'].isna()]
+test_df = cc_df[cc_df['class'].isna()]
 
-# %%
-# ===== buyingをコード化
-def processBuying(df):
-    df['buying'] = df['buying'].map(
-        {'low': 0, 'med': 1, 'high': 2, 'vhigh': 3}).astype(int)
-    return df
-
-train_df = processBuying(train_df)
-test_df = processBuying(test_df)
+train_df['class'] = train_df['class'].map(
+    {'unacc': 0, 'acc': 1, 'good': 2, 'vgood': 3}).astype(int)
 
 # %%
-# ===== maintをコード化
-def processMaint(df):
-    df['maint'] = df['maint'].map(
-        {'low': 0, 'med': 1, 'high': 2, 'vhigh': 3}).astype(int)
-    return df
+X = train_df.drop(['id', 'class'],axis=1)
+y = train_df['class']
+X_test = test_df.drop(['id', 'class'], axis=1)
 
-train_df = processMaint(train_df)
-test_df = processMaint(test_df)
+kf = KFold(n_splits=4, shuffle=True, random_state=71)
 
-# %%
-# ===== doorsをコード化
-def processDoors(df):
-    df.loc[
-    (df['doors'] == '5more'),'doors'] = 9
-    df['doors'] = df['doors'].astype(int)
-    return df
+tr_idx, va_idx = list(kf.split(X))[0]
 
-train_df = processDoors(train_df)
-test_df = processDoors(test_df)
+tr_x, va_x = X.iloc[tr_idx], X.iloc[va_idx]
+tr_y, va_y = y.iloc[tr_idx], y.iloc[va_idx]
 
-# %%
-# ===== personsをコード化
-def processPersons(df):
-    df.loc[
-        (df['persons'] == 'more'),
-        'persons'] = 9
-    df['persons'] = df['persons'].astype(int)
-    return df
+dtrain = xgb.DMatrix(tr_x, label=tr_y)
+dvalid = xgb.DMatrix(va_x, label=va_y)
+dtest = xgb.DMatrix(X_test)
 
-train_df = processPersons(train_df)
-test_df = processPersons(test_df)
+params = {
+    'objective': 'multi:softprob',
+    'eval_metric':'logloss',
+    'max_depth': 5,
+    'random_state': 71,
+    'num_class':4}
+# num_round = 50
 
-# %%
-# ===== lug_bootをコード化
-def processLugboot(df):
-    df['lug_boot'] = df['lug_boot'].map(
-    {'small': 0, 'med': 1, 'big': 2}).astype(int)
-    return df
+# watchlist = [(dtrain, 'train'), (dvalid, 'eval')]
+# model = xgb.train(params, dtrain, num_round, evals=watchlist)
+model = xgb.train(params, dtrain)
 
-train_df = processLugboot(train_df)
-test_df = processLugboot(test_df)
+va_pred = model.predict(dvalid)
+score = log_loss(va_y, va_pred)
 
-# %%
-# ===== safetyをコード化
-def processSafety(df):
-    df['safety'] = df['safety'].map(
-        {'low': 0, 'med': 1, 'high': 2}).astype(int)
-    return df
+print(f'multi-class logloss: {score:4f}')
 
-train_df = processSafety(train_df)
-test_df = processSafety(test_df)
-
-# %%
-# ===== 不要な列を削除
-def dropColumns(df):
-    # df = df.drop(['doors'], axis=1)
-    return df
-train_df = dropColumns(train_df)
-test_df = dropColumns(test_df)
-
-# %%
-train_X = train_df.drop(['id', 'class'],axis=1)
-train_y = train_df['class']
-test_x = test_df.drop('id', axis=1)
-
-# %%
-param_grid = {"max_depth": [2, 3, None],
-            "n_estimators": [50, 100, 150],
-            "min_samples_split": [2, 3],
-            "min_samples_leaf": [1, 3, 10],
-            "bootstrap": [True, False],
-            "criterion": ['gini', 'entropy']
-}
-
-forest_grid = GridSearchCV(estimator=RandomForestClassifier(random_state=0),
-                param_grid = param_grid,
-                scoring='accuracy',
-                cv = 3,
-                n_jobs = 1)
-
-forest_grid.fit(train_X, train_y)
-forest_grid_best = forest_grid.best_estimator_
-print(forest_grid_best)
-
-Y_pred = forest_grid_best.predict(test_x)
+pred = model.predict(dtest)
 
 
 # %%
 def outputCSV(pred, csvName):
+    pred_class = []
+    for item in pred:
+        pred_class.append(np.argmax(item))
+
     submission = pd.DataFrame({
         "id": test_df['id'],
-        'class': pred
+        'class': pred_class
     })
     submission['class'] = submission['class'].map(
         {0: 'unacc', 1: 'acc', 2: 'good', 3: 'vgood'})
     now = datetime.datetime.now()
-    submission.to_csv('evaluateVehicle/output/' + csvName +
+    submission.to_csv('output/' + csvName +
                     now.strftime('%Y%m%d_%H%M%S') + '.csv', index=False, header=False)
 
-outputCSV(Y_pred, 'EvaluateVehicle')
+outputCSV(pred, 'EvaluateVehicle')
+
+
+# %%
