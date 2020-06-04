@@ -191,34 +191,31 @@ test_df = processTime(test_df)
 # チーム名のダミー変数を作成。
 def processTeam(df):
     lst_homestadium = []
+    df['notHeldHome'] = 0
 
     for item in list_clubinfo:
-        team = item[0]
+        team_code = item[0]
+        team_name = item[1]
+        list_stadium = item[2]
         # ホーム/アウェイチームのコードを列[home][away]にセットする。
-        df.loc[(df['home'] == item[1]), 'home'] = team
-        df.loc[(df['away'] == item[1]), 'away'] = team
+        df.loc[(df['home'] == team_name), 'home'] = team_code
+        df.loc[(df['away'] == team_name), 'away'] = team_code
 
-        # アウェイチーム列の作成を作成し、フラグを立てる。
-        a_code = 'a_' + team
+        # ホームチーム列を作成し、フラグを立てる。
+        # 開催スタジアムがホームスタジアムではない場合は、ホーム以外開催のフラグも立てる。
+        # ホームチーム×開催スタジアムの列を、ホームチーム列とホームスタジアム以外の開催列に変更した。
+        # 理由1：開催スタジアムはキャパと屋根の有無で表現できる。
+        # 理由2：ホームスタジアムが変更したり、改修で屋根やキャパに変更があった場合にも特徴変数が変動しない。
+        h_code = 'h_' + team_code
+        df[h_code] = 0
+        df.loc[(df['home'] == team_code) , h_code] = 1
+        df.loc[(df['home'] == team_code) & (~df['stadium'].isin(list_stadium)), 'notHeldHome'] = 1
+
+        # アウェイチーム列を作成し、フラグを立てる
+        a_code = 'a_' + team_code
         df[a_code] = 0
-        df.loc[(df['away'] == team), a_code] = 1
+        df.loc[(df['away'] == team_code), a_code] = 1
 
-        # ホームチーム×ホームスタジアムの列を作成
-        for stadium in item[2]:
-            lst_homestadium.append([team, stadium])
-
-    df['tmpflg'] = 0
-    for item in lst_homestadium:
-        df[item[0] + '_' + item[1]] = 0
-        df.loc[(df['home'] == item[0]) & (df['stadium'] == item[1]), item[0] + '_' + item[1]] = 1
-        df.loc[(df['home'] == item[0]) & (df['stadium'] == item[1]), 'tmpflg'] = 1
-
-    lst_heldAtOtherStadium = df[df['tmpflg'] == 0]['home'].to_list()
-    for team in lst_heldAtOtherStadium:
-        df[team + '_other'] = 0
-        df.loc[(df['home'] == team) & (df['tmpflg'] == 0), team + '_other'] = 1
-
-    df.drop(['tmpflg'], axis=1, inplace=True)
 
     return df
 
