@@ -92,10 +92,6 @@ def mergeStadiumDf(df):
 train_df = mergeStadiumDf(train_df)
 test_df = mergeStadiumDf(test_df)
 
-# 来場者数とスタジアムの収容人数から収容率を取得
-train_df['yratio'] = (train_df['y'] / train_df['capa'])
-
-
 # %%
 def renameKusatsu(df):
     df.loc[df['home'] == 'ザスパ草津', 'home'] = 'ザスパクサツ群馬'
@@ -344,6 +340,12 @@ def processTv(df):
 train_df = processTv(train_df)
 test_df = processTv(test_df)
 
+# %
+# クラブによってはキャパシティの異なる複数のスタジアムで試合をすることもある。
+# また、キャパシティもスタジアムによって大きく変わる(3,560~72,327)
+# そのため、収容率(yratio)を目的変数に変更する。
+train_df['yratio'] = (train_df['y'] / train_df['capa'])
+
 # %%
 # 不要な列を削除
 def deleteColumns(df):
@@ -354,13 +356,11 @@ train_df = deleteColumns(train_df)
 test_df = deleteColumns(test_df)
 
 # %%
-# クラブによってはキャパシティの異なる複数のスタジアムで試合をすることもある。
-# また、キャパシティもスタジアムによって大きく変わる(3,560~72,327)
-# そのため、収容率(yratio)を目的変数に変更する。
+
 X = train_df.drop(['id', 'y', 'yratio'],axis=1)
 y = train_df['yratio']
 
-X_test = test_df.drop(['id', 'y', 'yratio'],axis=1)
+X_test = test_df.drop(['id', 'y'],axis=1)
 
 kf = KFold(n_splits=4, shuffle=True, random_state=71)
 tr_idx, va_idx = list(kf.split(X))[0]
