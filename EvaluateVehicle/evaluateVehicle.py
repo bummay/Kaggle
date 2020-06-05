@@ -1,6 +1,10 @@
 # %%
 import pandas as pd
 import numpy as np
+
+import xgboost as xgb
+from sklearn.metrics import log_loss
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 import datetime
@@ -87,6 +91,31 @@ sns.countplot(x='safety', hue='class', data=train_df,
 cc_df = pd.concat([train_df, test_df])
 cc_df = pd.get_dummies(cc_df, columns=['buying', 'maint', 'doors', 'persons', 'lug_boot', 'safety'])
 
+# # buying → 「low ~ med」or「high ~ vhigh」の2つに分ける
+# cc_df['buyingIsHigh'] = 0
+# cc_df.loc[cc_df['buying'].isin(['high', 'vhigh']), 'buyingIsHigh'] = 1
+# cc_df.drop(['buying'], axis=1, inplace=True)
+
+# # maint → 「low ~ med」or「high ~ vhigh」の2つに分ける
+# cc_df['maintIsHigh'] = 0
+# cc_df.loc[cc_df['maint'].isin(['high', 'vhigh']), 'maintIsHigh'] = 1
+# cc_df.drop(['maint'], axis=1, inplace=True)
+
+# # doors → 思い切って全消し
+# cc_df.drop(['doors'], axis=1, inplace=True)
+
+# # persons → 2 or else
+# cc_df = pd.get_dummies(cc_df, columns=['persons'])
+# cc_df.drop(['persons_4', 'persons_more'], axis=1, inplace=True)
+# # lug_boot → small or else
+# cc_df = pd.get_dummies(cc_df, columns=['lug_boot'])
+# cc_df.drop(['lug_boot_big', 'lug_boot_med'], axis=1, inplace=True)
+
+# # safety → low or else
+# cc_df = pd.get_dummies(cc_df, columns=['safety'])
+# cc_df.drop(['safety_high', 'safety_med'], axis=1, inplace=True)
+
+
 train_df = cc_df[~cc_df['class'].isna()]
 test_df = cc_df[cc_df['class'].isna()]
 
@@ -132,6 +161,7 @@ pred = model.predict(dtest)
 # %%
 def outputCSV(pred, csvName):
     pred_class = []
+    # 最も確率が高いclassを選択。
     for item in pred:
         pred_class.append(np.argmax(item))
 
