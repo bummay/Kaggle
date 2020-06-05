@@ -190,7 +190,15 @@ test_df = processTime(test_df)
 # %%
 # チーム名のダミー変数を作成。
 def processTeam(df):
-    lst_homestadium = []
+    lst_effective_away = [
+        [0, 'kobe'],
+        [0, 'yokohama_fc'],
+        [0, 'iwata'],
+        [0, 'g_osaka'],
+        [1, 'c_osaka'],
+        [1, 'urawa']
+    ]
+
     df['notHeldHome'] = 0
 
     for item in list_clubinfo:
@@ -212,10 +220,14 @@ def processTeam(df):
         df.loc[(df['home'] == team_code) & (~df['stadium'].isin(list_stadium)), 'notHeldHome'] = 1
 
         # アウェイチーム列を作成し、フラグを立てる
-        a_code = 'a_' + team_code
-        df[a_code] = 0
-        df.loc[(df['away'] == team_code), a_code] = 1
+        # a_code = 'a_' + team_code
+        # df[a_code] = 0
+        # df.loc[(df['away'] == team_code), a_code] = 1
 
+    for item in lst_effective_away:
+        a_code = 'a_' + item[1] + '_' + str(item[0])
+        df[a_code] = 0
+        df.loc[(df['stage'] == item[0]) & (df['away'] == item[1]), a_code] = 1
 
     return df
 
@@ -226,6 +238,7 @@ cc_df = pd.merge(cc_df, stats_home, how='left', left_on=['year', 'stage', 'home'
 cc_df = pd.merge(cc_df, stats_away, how='left', left_on=['year', 'stage', 'away', 'week'] , right_on=['year', 'stage', 'a_team', 'week'])
 cc_df.drop(['h_team', 'a_team'], axis=1, inplace=True)
 
+# %%
 train_df = cc_df[cc_df['y'] > 0]
 test_df = cc_df[cc_df['y'].isna()]
 # %%
